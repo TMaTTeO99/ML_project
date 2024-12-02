@@ -50,4 +50,24 @@ class NeuralNetwork():
         # the matix is m x n where m is the number of input unit and n is the number of the unit of that level
 
         self.listOfWeightMatrices = self.initalizeWeightMatrix()
+    
+    # inputX is an input Matrix 
+    def feedForeward (self, inputX):
+
+        localInputX = inputX
+        #level means W matrix for all levels
+        for level in range(len(self.listOfWeightMatrices)):
+
+            localInputX = np.mathmul(localInputX, self.listOfWeightMatrices[level])
+            localInputX = self.activation(localInputX)
+        
+        # localInputX == output of feedForeward of the NN  
+        return localInputX; 
+            
+
+
+
+
+
+
 
