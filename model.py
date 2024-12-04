@@ -29,7 +29,7 @@ class NeuralNetwork():
          
     def initalizeWeightMatrix (self):
         weightMatricesList = []
-        for i in range(len(self.units_for_levels)-1): 
+        for i in range(self.numberOfLevels): 
             weightMatricesList.append(self.random_matrix(self.units_for_levels[i], self.units_for_levels[i+1]))
         return weightMatricesList
 
@@ -73,14 +73,16 @@ class NeuralNetwork():
         self.listOfWeightMatrices = self.initalizeWeightMatrix()
     
     # inputX is an input Matrix 
+    # at the end of feedForeward I should have as many elements as number of levels in both listOfHiddenRepr and listOfNet
+    # 0,.., level-1 
     def feedForeward (self, inputX):
 
         localInputX = inputX
         self.listOfHiddenRepr = []
-        self.listOfHiddenRepr.append(inputX)
+        #self.listOfHiddenRepr.append(inputX)
         self.listOfNet = []
         #level means W matrix for all levels
-        for level in range(len(self.listOfWeightMatrices)):
+        for level in range(self.numberOfLevels):
             # compute the net 
             localInputX = np.matmul(localInputX, self.listOfWeightMatrices[level])
             # save the net 
@@ -98,33 +100,41 @@ class NeuralNetwork():
 
     # y is the target matrix
     # o is the output matrix 
-    def backPropagate(self, y, o):
+    def backPropagate(self, x, y, o):
         error = y - o 
         # print(f"len of listOfNet: {len(self.listOfNet)}")
         net_k = self.listOfNet[self.numberOfLevels-1]
-        delta_k = error * self.activation[self.numberOfLevels-1](net_k, True)
+        delta_k = np.matmul(error,self.activation[self.numberOfLevels-1](net_k, True))
         listOfDelta = []
         delta_temp = delta_k
-        for levels in range(self.numberOfLevels-1,1,-1):
-            delta_temp = delta_temp * self.listOfWeightMatrices[levels]
+        for levels in range(self.numberOfLevels-1,0,-1):
+            delta_temp = np.matmul(delta_temp,self.listOfWeightMatrices[levels].T)
             net_j = self.listOfNet[levels-1]
-            delta_temp = delta_temp * self.activation[levels-1](net_j, derivative = True)
+            delta_temp = np.matmul(delta_temp,self.activation[levels-1](net_j, derivative = True).T)
             listOfDelta.append(delta_temp)
         
         # compute the gradients for each level 
-        grad_output = delta_k * self.listOfHiddenRepr[self.numberOfLevels-1]
+        grad_output = np.matmul(delta_k,self.listOfHiddenRepr[self.numberOfLevels-1])
         grad_hidden = []
-        for levels in range(self.numberOfLevels-1,1,-1):
-            grad_hidden.append(listOfDelta[levels]*self.listOfHiddenRepr[levels-1])
+        for levels in range(self.numberOfLevels-1,0,-1):
+            print(f"{listOfDelta}")
+            print(f"{self.listOfHiddenRepr}")
+            if levels == 1:
+                grad_hidden.append(np.matmul(listOfDelta[levels-1],x))
+            else:
+                grad_hidden.append(np.mul(listOfDelta[levels-1],self.listOfHiddenRepr[levels-2]))
+
         return grad_output, grad_hidden
 
 
     def train (self, X, Y ):
         # compute model output 
         o = self.feedForeward(X)
-        self.backPropagate(Y, o)
-        print("Non sono esploso")
-
+        grad_output, grad_hidden = self.backPropagate(X, Y,o)
+        print("grad_hidden")
+        print(f"{grad_hidden}")
+        print("grad_output")
+        print(f"{grad_output}")
 
             
 
