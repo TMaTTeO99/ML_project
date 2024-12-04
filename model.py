@@ -101,40 +101,81 @@ class NeuralNetwork():
     # y is the target matrix
     # o is the output matrix 
     def backPropagate(self, x, y, o):
+        
         error = y - o 
         # print(f"len of listOfNet: {len(self.listOfNet)}")
         net_k = self.listOfNet[self.numberOfLevels-1]
-        delta_k = np.matmul(error,self.activation[self.numberOfLevels-1](net_k, True))
+        
+        # Previus, here there is an error: 
+        # self.activation[self.numberOfLevels-1](net_k, True) need to be  transpose
+        # and we need to change the multiplication 
+        # delta_k = np.matmul(error,self.activation[self.numberOfLevels-1](net_k, True))
+
+        #delta_k = np.matmul(error, self.activation[self.numberOfLevels-1](net_k, True).T)
+        delta_k = np.zeros((x.shape[0], error.shape[1]))
+
+        for pattern in range(x.shape[0]):
+            delta_k[pattern, :] = error[pattern, :] * self.activation[self.numberOfLevels-1](net_k, True).T[:, pattern]
+            
+        #print(f" delta_k: \n {delta_k.shape[0], delta_k.shape[1]}")
+
+
         listOfDelta = []
         delta_temp = delta_k
+
         for levels in range(self.numberOfLevels-1,0,-1):
             delta_temp = np.matmul(delta_temp,self.listOfWeightMatrices[levels].T)
             net_j = self.listOfNet[levels-1]
-            delta_temp = np.matmul(delta_temp,self.activation[levels-1](net_j, derivative = True).T)
+
+            for pattern in range(x.shape[0]):
+                delta_temp[pattern, :] = delta_temp[pattern, :] * self.activation[levels-1](net_j, derivative = True).T[:, pattern]
+            
+            
+            # like before here there are few errors (look notes) 
+            #delta_temp = np.matmul(delta_temp,self.activation[levels-1](net_j, derivative = True).T)
             listOfDelta.append(delta_temp)
         
+        
         # compute the gradients for each level 
-        grad_output = np.matmul(delta_k,self.listOfHiddenRepr[self.numberOfLevels-1])
+        grad_output = np.matmul(delta_k.T, self.listOfHiddenRepr[self.numberOfLevels-1])
         grad_hidden = []
+
         for levels in range(self.numberOfLevels-1,0,-1):
-            print(f"{listOfDelta}")
-            print(f"{self.listOfHiddenRepr}")
             if levels == 1:
-                grad_hidden.append(np.matmul(listOfDelta[levels-1],x))
+                grad_hidden.append(np.matmul(listOfDelta[levels-1].T, x))
             else:
-                grad_hidden.append(np.mul(listOfDelta[levels-1],self.listOfHiddenRepr[levels-2]))
+                grad_hidden.append(np.matmul(listOfDelta[levels-1].T, self.listOfHiddenRepr[levels-2]))
 
         return grad_output, grad_hidden
 
 
     def train (self, X, Y ):
-        # compute model output 
-        o = self.feedForeward(X)
-        grad_output, grad_hidden = self.backPropagate(X, Y,o)
-        print("grad_hidden")
-        print(f"{grad_hidden}")
-        print("grad_output")
-        print(f"{grad_output}")
+        
+
+        i = 0
+        while i < 100 :
+
+            # compute model output 
+            o = self.feedForeward(X)
+            grad_output, grad_hidden = self.backPropagate(X, Y, o)
+            grad_hidden.reverse()
+
+            for j in range(0, len(grad_hidden) - 1, 1):
+                self.listOfWeightMatrices[j] = self.listOfWeightMatrices[j] + (0.1 * grad_hidden[j]) 
+            
+            self.listOfWeightMatrices[len(self.listOfWeightMatrices)-1] = self.listOfWeightMatrices[len(self.listOfWeightMatrices)-1] + (0.1 * grad_output) 
+            
+            i += 1
+
+        print(f"grad_output : {grad_output}")
+        print(f"grad_hidden : {grad_hidden}")
+        
+
+
+        #print("grad_hidden")
+        #print(f"{grad_hidden}")
+        #print("grad_output")
+        #print(f"{grad_output}")
 
             
 
