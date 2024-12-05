@@ -112,10 +112,10 @@ class NeuralNetwork():
         # delta_k = np.matmul(error,self.activation[self.numberOfLevels-1](net_k, True))
 
         #delta_k = np.matmul(error, self.activation[self.numberOfLevels-1](net_k, True).T)
-        delta_k = np.zeros((x.shape[0], error.shape[1]))
+        delta_k = np.zeros((error.shape[0], error.shape[1]))
 
         for pattern in range(x.shape[0]):
-            delta_k[pattern, :] = error[pattern, :] * self.activation[self.numberOfLevels-1](net_k, True).T[:, pattern]
+            delta_k[pattern] = error[pattern] * self.activation[self.numberOfLevels-1](net_k, True)[pattern]
             
         #print(f" delta_k: \n {delta_k.shape[0], delta_k.shape[1]}")
 
@@ -128,7 +128,7 @@ class NeuralNetwork():
             net_j = self.listOfNet[levels-1]
 
             for pattern in range(x.shape[0]):
-                delta_temp[pattern, :] = delta_temp[pattern, :] * self.activation[levels-1](net_j, derivative = True).T[:, pattern]
+                delta_temp[pattern] = delta_temp[pattern] * self.activation[levels-1](net_j, derivative = True)[pattern]
             
             
             # like before here there are few errors (look notes) 
@@ -140,13 +140,22 @@ class NeuralNetwork():
         grad_output = np.matmul(delta_k.T, self.listOfHiddenRepr[self.numberOfLevels-1])
         grad_hidden = []
 
+        """ 
         for levels in range(self.numberOfLevels-1,0,-1):
             if levels == 1:
-                grad_hidden.append(np.matmul(listOfDelta[levels-1].T, x))
+                grad_hidden.append(np.matmul(listOfDelta[levels-1].T, x).T)
             else:
-                grad_hidden.append(np.matmul(listOfDelta[levels-1].T, self.listOfHiddenRepr[levels-2]))
+                grad_hidden.append(np.matmul(listOfDelta[levels-1].T, self.listOfHiddenRepr[levels-2]).T)
+        """
+        listOfDelta.reverse()
+        for levels in range(0,self.numberOfLevels-1,1):
+            if levels == 0:
+                grad_hidden.append(np.matmul(listOfDelta[levels].T, x).T)
+            else:
+                grad_hidden.append(np.matmul(listOfDelta[levels].T, self.listOfHiddenRepr[levels-1]).T)
 
-        return grad_output, grad_hidden
+
+        return grad_output.T, grad_hidden
 
 
     def train (self, X, Y ):
@@ -158,17 +167,19 @@ class NeuralNetwork():
             # compute model output 
             o = self.feedForeward(X)
             grad_output, grad_hidden = self.backPropagate(X, Y, o)
-            grad_hidden.reverse()
+            # grad_hidden.reverse()
 
             for j in range(0, len(grad_hidden) - 1, 1):
-                self.listOfWeightMatrices[j] = self.listOfWeightMatrices[j] + (0.1 * grad_hidden[j]) 
+                # print(f"Shape of weight matrix {j}: {self.listOfWeightMatrices[j].shape}")
+                # print(f"Shape of gradient {j}: {grad_hidden[j].shape}")
+                self.listOfWeightMatrices[j] = self.listOfWeightMatrices[j] + (0.01 * grad_hidden[j]) 
             
-            self.listOfWeightMatrices[len(self.listOfWeightMatrices)-1] = self.listOfWeightMatrices[len(self.listOfWeightMatrices)-1] + (0.1 * grad_output) 
+            self.listOfWeightMatrices[len(self.listOfWeightMatrices)-1] = self.listOfWeightMatrices[len(self.listOfWeightMatrices)-1] + (0.01 * grad_output) 
             
             i += 1
 
-        print(f"grad_output : {grad_output}")
-        print(f"grad_hidden : {grad_hidden}")
+        # print(f"grad_output : {grad_output}")
+        # print(f"grad_hidden : {grad_hidden}")
         
 
 
