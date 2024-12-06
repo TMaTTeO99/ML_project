@@ -203,7 +203,8 @@ class NeuralNetwork():
                 normGradHidden = np.matmul(listOfDelta[levels].T, x).T / x.shape[0] 
                 grad_hidden.append(normGradHidden)
             else:
-                normGradHidden = np.matmul(listOfDelta[levels].T, self.listOfHiddenRepr[levels-1]).T
+                # forgot / x.shape[0] 
+                normGradHidden = np.matmul(listOfDelta[levels].T, self.listOfHiddenRepr[levels-1]).T / x.shape[0] 
                 grad_hidden.append(normGradHidden)
 
 
@@ -302,10 +303,10 @@ class NeuralNetwork():
             for j in range(0, len(grad_hidden), 1):
                 # print(f"Shape of weight matrix {j}: {self.listOfWeightMatrices[j].shape}")
                 # print(f"Shape of gradient {j}: {grad_hidden[j].shape}")
-                self.listOfWeightMatrices[j] = self.listOfWeightMatrices[j] + ((0.1/10) * grad_hidden[j]) 
+                self.listOfWeightMatrices[j] = self.listOfWeightMatrices[j] + ((0.3) * grad_hidden[j]) 
             
             # list[-1] = last elem of the list = weights between hidden and output
-            self.listOfWeightMatrices[-1] = self.listOfWeightMatrices[-1] + ((0.1/10) * grad_output) 
+            self.listOfWeightMatrices[-1] = self.listOfWeightMatrices[-1] + ((0.3) * grad_output) 
             
             i += 1
 
