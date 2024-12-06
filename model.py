@@ -15,7 +15,9 @@ class NeuralNetwork():
             x = np.where(x >= 0, 1, x)
             return x
         return np.maximum(0,x)
-    
+  
+
+
     def linear(self, x, derivative =False):
         if derivative:
             return np.ones_like(x)
@@ -32,6 +34,15 @@ class NeuralNetwork():
         for i in range(self.numberOfLevels): 
             weightMatricesList.append(self.random_matrix(self.units_for_levels[i], self.units_for_levels[i+1]))
         return weightMatricesList
+    
+      
+    def mean_squared_error_loss (self, Y, O):
+        num_pattern = Y.shape[0]
+        diff = Y - O 
+        squared_error = np.square(diff)
+        squared_error = np.sum(squared_error, axis = 1)
+        squared_error = np.sum(squared_error)
+        return squared_error/num_pattern
 
     @staticmethod
     def print_matrices_fancy(list_to_print):
@@ -90,12 +101,13 @@ class NeuralNetwork():
             # compute the hidden unit output 
             localInputX = self.activation[level](localInputX)
             self.listOfHiddenRepr.append(localInputX)
-
-            # print for debug
-            print("Stampa rappresentazione interna")
-            self.print_matrices_fancy(self.listOfHiddenRepr)
-
-        # localInputX == output of feedForeward of the NN  
+ 
+        # print for debug
+        print("Stampa net ")
+        self.print_matrices_fancy(self.listOfNet)
+        print("Stampa rappresentazione interna")
+        self.print_matrices_fancy(self.listOfHiddenRepr)
+        # localInputX == output of feedForeward of the NN 
         return localInputX; 
 
     # y is the target matrix
@@ -103,6 +115,7 @@ class NeuralNetwork():
     def backPropagate(self, x, y, o):
         
         error = y - o 
+        print(f"error: {error}\n")
         # print(f"len of listOfNet: {len(self.listOfNet)}")
         net_k = self.listOfNet[self.numberOfLevels-1]
         
@@ -119,14 +132,17 @@ class NeuralNetwork():
             
         #print(f" delta_k: \n {delta_k.shape[0], delta_k.shape[1]}")
 
-
+        print(f"delta_k: {delta_k}\n")
         listOfDelta = []
         delta_temp = delta_k
 
         for levels in range(self.numberOfLevels-1,0,-1):
             delta_temp = np.matmul(delta_temp,self.listOfWeightMatrices[levels].T)
+            print(f" delta_j temp: {delta_temp}\n")
             net_j = self.listOfNet[levels-1]
 
+            print(f"derivata di net_J {self.activation[levels-1](net_j, derivative = True)}\n")
+            
             for pattern in range(x.shape[0]):
                 delta_temp[pattern] = delta_temp[pattern] * self.activation[levels-1](net_j, derivative = True)[pattern]
             
@@ -137,7 +153,10 @@ class NeuralNetwork():
         
         
         # compute the gradients for each level 
-        grad_output = np.matmul(delta_k.T, self.listOfHiddenRepr[self.numberOfLevels-1])
+        grad_output = np.matmul(delta_k.T, self.listOfHiddenRepr[self.numberOfLevels-2])
+
+        # normalization widh batch dim
+        grad_output = grad_output / x.shape[0]
         grad_hidden = []
 
         """ 
@@ -148,51 +167,68 @@ class NeuralNetwork():
                 grad_hidden.append(np.matmul(listOfDelta[levels-1].T, self.listOfHiddenRepr[levels-2]).T)
         """
         listOfDelta.reverse()
+        for delta in listOfDelta:
+            print(f"delta{delta}")
+
         for levels in range(0,self.numberOfLevels-1,1):
             if levels == 0:
-                grad_hidden.append(np.matmul(listOfDelta[levels].T, x).T)
+                normGradHidden = np.matmul(listOfDelta[levels].T, x).T / x.shape[0] 
+                grad_hidden.append(normGradHidden)
             else:
-                grad_hidden.append(np.matmul(listOfDelta[levels].T, self.listOfHiddenRepr[levels-1]).T)
+                normGradHidden = np.matmul(listOfDelta[levels].T, self.listOfHiddenRepr[levels-1]).T
+                grad_hidden.append(normGradHidden)
 
 
         return grad_output.T, grad_hidden
 
 
     def train (self, X, Y ):
-        
+        log = []  
 
         i = 0
-        while i < 100 :
+        e = float("inf")
+        while i < 500 and e > 0.01:
+            # print weight matrices
+            print(f"matrice dei pesi iterazione {i}")
+            self.print_matrices_fancy(self.listOfWeightMatrices)
+
+
 
             # compute model output 
             o = self.feedForeward(X)
+
+            # print the error 
+
+
+
             grad_output, grad_hidden = self.backPropagate(X, Y, o)
+            e = self.mean_squared_error_loss(Y, o)
+            log.append(f"Epoch : {i}, MSE : {e}\n")
+
+            print("grad_hidden")
+            print(f"{grad_hidden}\n")
+            print("grad_output")
+            print(f"{grad_output}\n")
             # grad_hidden.reverse()
 
-            for j in range(0, len(grad_hidden) - 1, 1):
+            for j in range(0, len(grad_hidden), 1):
                 # print(f"Shape of weight matrix {j}: {self.listOfWeightMatrices[j].shape}")
                 # print(f"Shape of gradient {j}: {grad_hidden[j].shape}")
-                self.listOfWeightMatrices[j] = self.listOfWeightMatrices[j] + (0.01 * grad_hidden[j]) 
+                self.listOfWeightMatrices[j] = self.listOfWeightMatrices[j] + ((0.1/10) * grad_hidden[j]) 
             
-            self.listOfWeightMatrices[len(self.listOfWeightMatrices)-1] = self.listOfWeightMatrices[len(self.listOfWeightMatrices)-1] + (0.01 * grad_output) 
+            # list[-1] = last elem of the list = weights between hidden and output
+            self.listOfWeightMatrices[-1] = self.listOfWeightMatrices[-1] + ((0.1/10) * grad_output) 
             
             i += 1
 
-        # print(f"grad_output : {grad_output}")
-        # print(f"grad_hidden : {grad_hidden}")
+        with open("./log.txt", mode = 'w' ) as file:
+            for string in log:
+                file.write(string)
         
-
-
-        #print("grad_hidden")
-        #print(f"{grad_hidden}")
-        #print("grad_output")
-        #print(f"{grad_output}")
-
-            
+         
 
     def predict(self, inputX):
         return self.feedForeward(inputX)
-
 
 
     def get_list_weight_matrices(self):
