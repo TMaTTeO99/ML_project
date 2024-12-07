@@ -24,7 +24,7 @@ class NeuralNetwork():
         return x
     
     ## TO-DO add more activation functions like tanh 
-    
+
     #w_{i,j}: arrow from unit i to unit j 
     @staticmethod
     def random_matrix(rows, columns, min_val, max_val):
@@ -91,11 +91,9 @@ class NeuralNetwork():
     def __init__(self, units_for_levels, activation, dbgMode):
 
         self.debugMode = dbgMode
-        
         self.units_for_levels = units_for_levels
         self.numberOfLevels = len(units_for_levels)-1
-        # print(f"number of levels: {self.numberOfLevels}")
-        # initial the activation function 
+
         self.initializeActivationFunctions(activation)
        
     
@@ -106,8 +104,8 @@ class NeuralNetwork():
 
         localInputX = inputX
         self.listOfHiddenRepr = []
-        #self.listOfHiddenRepr.append(inputX)
         self.listOfNet = []
+
         #level means W matrix for all levels
         for level in range(self.numberOfLevels):
             # compute the net 
@@ -137,21 +135,12 @@ class NeuralNetwork():
         if self.debugMode :
             print(f"error: {error}\n")
 
-        # print(f"len of listOfNet: {len(self.listOfNet)}")
         net_k = self.listOfNet[self.numberOfLevels-1]
-        
-        # Previus, here there is an error: 
-        # self.activation[self.numberOfLevels-1](net_k, True) need to be  transpose
-        # and we need to change the multiplication 
-        # delta_k = np.matmul(error,self.activation[self.numberOfLevels-1](net_k, True))
-
-        #delta_k = np.matmul(error, self.activation[self.numberOfLevels-1](net_k, True).T)
         delta_k = np.zeros((error.shape[0], error.shape[1]))
 
         for pattern in range(x.shape[0]):
             delta_k[pattern] = error[pattern] * self.activation[self.numberOfLevels-1](net_k, True)[pattern]
             
-        #print(f" delta_k: \n {delta_k.shape[0], delta_k.shape[1]}")
         if self.debugMode :
             print(f"delta_k: {delta_k}\n")
 
@@ -172,11 +161,7 @@ class NeuralNetwork():
             for pattern in range(x.shape[0]):
                 delta_temp[pattern] = delta_temp[pattern] * self.activation[levels-1](net_j, derivative = True)[pattern]
             
-            
-            # like before here there are few errors (look notes) 
-            #delta_temp = np.matmul(delta_temp,self.activation[levels-1](net_j, derivative = True).T)
             listOfDelta.append(delta_temp)
-        
         
         # compute the gradients for each level 
         grad_output = np.matmul(delta_k.T, self.listOfHiddenRepr[self.numberOfLevels-2])
@@ -185,15 +170,8 @@ class NeuralNetwork():
         grad_output = grad_output / x.shape[0]
         grad_hidden = []
 
-        """ 
-        for levels in range(self.numberOfLevels-1,0,-1):
-            if levels == 1:
-                grad_hidden.append(np.matmul(listOfDelta[levels-1].T, x).T)
-            else:
-                grad_hidden.append(np.matmul(listOfDelta[levels-1].T, self.listOfHiddenRepr[levels-2]).T)
-        """
-        listOfDelta.reverse()
         
+        listOfDelta.reverse()
         if self.debugMode :
             for delta in listOfDelta:
                 print(f"delta{delta}")
@@ -267,11 +245,27 @@ class NeuralNetwork():
         # matrix for level l in position i,j  has the weight from unit j to unit i
         # the matix is m x n where m is the number of input unit and n is the number of the unit of that level
         self.listOfWeightMatrices = self.initalizeWeightMatrix(initMode)
+
         if self.debugMode :
             log = []  
 
         i = 0
         e = float("inf")
+
+        # added by Matteo for variable learning rate
+        eta0 = 0.5
+        eta_tau = 0.1  
+        tau = 50
+
+
+        # momentum param
+        alpha = 0.5
+
+        # init old gradient for momentum 
+        oldGrad_hidden = [np.zeros_like(w) for w in self.listOfWeightMatrices[:-1]]
+        oldGrad_output = np.zeros_like(self.listOfWeightMatrices[-1])
+
+        #end added Matteo
 
         while i < epochs and e > treshold:
             
@@ -279,51 +273,59 @@ class NeuralNetwork():
             if self.debugMode :
                 print(f"matrice dei pesi iterazione {i}")
                 self.print_matrices_fancy(self.listOfWeightMatrices)
-
-
-
+                
             # compute model output 
             o = self.feedForeward(X, self.listOfWeightMatrices)
 
             # print the error 
-            
             grad_output, grad_hidden = self.backPropagate(X, Y, o)
             e = self.mean_squared_error_loss(Y, o)
+
             if self.debugMode :
                 log.append(f"Epoch : {i}, MSE : {e}\n")
 
-            """
-            print("grad_hidden")
-            print(f"{grad_hidden}\n")
-            print("grad_output")
-            print(f"{grad_output}\n")
-            # grad_hidden.reverse()
-            """
+
+            # added by Matteo
+            # change learning rate
+            if i <= tau :
+                etas = self.learning_rate_schedule(eta0, eta_tau, tau, i)
+            else : 
+                etas = eta_tau
+            #end added
 
             for j in range(0, len(grad_hidden), 1):
-                # print(f"Shape of weight matrix {j}: {self.listOfWeightMatrices[j].shape}")
-                # print(f"Shape of gradient {j}: {grad_hidden[j].shape}")
-                self.listOfWeightMatrices[j] = self.listOfWeightMatrices[j] + ((0.3) * grad_hidden[j]) 
+                
+                # compute the momentum contribution for the hidden gradient update rule 
+                velocityHidden = alpha * oldGrad_hidden[j] + ((etas) * grad_hidden[j]) 
+                self.listOfWeightMatrices[j] = self.listOfWeightMatrices[j] + velocityHidden 
+                # save old momentum contribution for next iteration
+                oldGrad_hidden[j] = velocityHidden
             
+
+            # compute the momentum contribution for the output gradient update rule
+            velocityOutput = alpha * oldGrad_output + ((etas) * grad_output)
             # list[-1] = last elem of the list = weights between hidden and output
-            self.listOfWeightMatrices[-1] = self.listOfWeightMatrices[-1] + ((0.3) * grad_output) 
+            self.listOfWeightMatrices[-1] = self.listOfWeightMatrices[-1] + velocityOutput  
             
+            # save old momentum contribution for next iteration
+            oldGrad_output = velocityOutput 
+
             i += 1
+    
 
         if self.debugMode :
             for string in log:
                 file.write(string)
 
-        """
-        with open("./log.txt", mode = 'w' ) as file:
-            for string in log:
-                file.write(string)
-        """
         return e
         
 
-
-
+    # added by Matteo Torchia to change learning rate
+    def learning_rate_schedule(self, eta0, eta_tau, tau, step): 
+        gamma = step / tau 
+        eta_s = (1 - gamma) * eta0 + gamma * eta_tau
+        return eta_s
+    # end
 
     def predict(self, inputX):
         return self.feedForeward(inputX, self.optimalListOfWeightMatrices)
