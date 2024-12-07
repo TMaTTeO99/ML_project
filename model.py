@@ -267,6 +267,9 @@ class NeuralNetwork():
 
         #end added Matteo
 
+        # Thikonov Regularization 
+        lambda_reg = 0.01
+
         while i < epochs and e > treshold:
             
             # print weight matrices
@@ -297,15 +300,19 @@ class NeuralNetwork():
                 
                 # compute the momentum contribution for the hidden gradient update rule 
                 velocityHidden = alpha * oldGrad_hidden[j] + ((etas) * grad_hidden[j]) 
-                self.listOfWeightMatrices[j] = self.listOfWeightMatrices[j] + velocityHidden 
+                # compute penalty term for regularization
+                # penalty_term = lambda_reg * self.listOfWeightMatrices[j]
+                self.listOfWeightMatrices[j] = self.listOfWeightMatrices[j] + velocityHidden  # - penalty_term
                 # save old momentum contribution for next iteration
                 oldGrad_hidden[j] = velocityHidden
             
 
             # compute the momentum contribution for the output gradient update rule
             velocityOutput = alpha * oldGrad_output + ((etas) * grad_output)
+            # compute penalty term for regularization 
+            # penalty_term = lambda_reg * self.listOfWeightMatrices[-1]
             # list[-1] = last elem of the list = weights between hidden and output
-            self.listOfWeightMatrices[-1] = self.listOfWeightMatrices[-1] + velocityOutput  
+            self.listOfWeightMatrices[-1] = self.listOfWeightMatrices[-1] + velocityOutput  # - penalty_term 
             
             # save old momentum contribution for next iteration
             oldGrad_output = velocityOutput 
