@@ -9,9 +9,8 @@ debugMode = False
 
 while True:
     try :
-
-        input = input("insert \"true\" for debug mode. false otherwise\n")
-        if input == "true":
+        input = input("insert \"y\" for debug mode or others for standard mode\n")
+        if input == "y":
             debugMode = True
         else: debugMode = False
         break
@@ -20,6 +19,7 @@ while True:
 
 if debugMode == False:
     print(f"Training...\n")
+
 # instantiate the neural network
 model = NeuralNetwork([1,4,2,1], ['sigmoid','sigmoid','linear'], debugMode)
 
@@ -31,22 +31,19 @@ matrix = np.array([ [1],
                     [4],
                     [5],
                      ]) 
-#output = model.predict(matrix)
-# print("Stampa finale")
-# print(output)
 """
-x = np.random.uniform(1,20,200).reshape(-1,1)
+
+x = np.random.uniform(1,100,500).reshape(-1,1)
 y = np.log2(x) #math.log(x, 2)
 
 # model.train(matrix, np.array([[2], [4], [6], [8], [10]]))
-model.train(x, y, 1000, 0.0001)
+model.train(x, y, 1000, 0.0001, "random", 10)
 
-result = model.predict(np.array([ [1],
-                    [2],
-                    [4],
+result = model.predict(np.array([ [4],
                     [8],
                     [16],
-                     ]) )
-
+                    [32],
+                    [64],
+                    ]) )
 
 print(f" predizione del log in base 2 di 1, 2 , 4 , 8 e 16  : {result}")
