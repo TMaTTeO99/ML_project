@@ -23,6 +23,12 @@ class NeuralNetwork():
             return np.ones_like(x)
         return x
     
+    def tanh(self, x, a=1, derivative=False):
+        if derivative:
+            tanh_x = np.tanh(a * x)
+            return a * (1 - tanh_x**2)
+        return np.tanh(a * x)
+    
     ## TO-DO add more activation functions like tanh 
 
     #w_{i,j}: arrow from unit i to unit j 
@@ -83,6 +89,8 @@ class NeuralNetwork():
             elif  activation[levels] == 'relu':
                 self.activation.append(self.relu)
             elif  activation[levels] == 'linear':
+                self.activation.append(self.linear)
+            elif  activation[levels] == 'tanh':
                 self.activation.append(self.linear)
 
     # constructor  
@@ -204,11 +212,10 @@ class NeuralNetwork():
         listLogMatrices = [] 
         while i < numberOfRestart:
 
-            if self.debugMode :
-                with open(f"./log{i}.txt", mode = 'w' ) as file:
-                    etmp = self.realTraining(X, Y, epochs, treshold, initMode, file)
-            else :
-                etmp = self.realTraining(X, Y, epochs, treshold, initMode)
+            
+            with open(f"./log{i}.txt", mode = 'w' ) as file:
+                etmp = self.realTraining(X, Y, epochs, treshold, initMode, file)
+            
 
             if self.debugMode :
                 listLog.append(f" etmp for all iteration::::: {etmp} \n")
@@ -237,8 +244,7 @@ class NeuralNetwork():
 
 
 
-    def realTraining(self, X, Y, epochs, treshold, initMode, file=None):
-
+    def realTraining(self, X, Y, epochs, treshold, initMode, file):
         # initialization of the weight matrix to random small values 
         # we need a list of matrices, one for each layer, 
         # each matrix column represents the weight for a single unit of that level 
@@ -253,13 +259,13 @@ class NeuralNetwork():
         e = float("inf")
 
         # added by Matteo for variable learning rate
-        eta0 = 0.5
-        eta_tau = 0.1  
-        tau = 50
+        eta0 = 0.8
+        eta_tau = 0.5  
+        tau = 100
 
 
         # momentum param
-        alpha = 0.5
+        alpha = 0.9
 
         # init old gradient for momentum 
         oldGrad_hidden = [np.zeros_like(w) for w in self.listOfWeightMatrices[:-1]]
@@ -282,7 +288,9 @@ class NeuralNetwork():
 
             # print the error 
             grad_output, grad_hidden = self.backPropagate(X, Y, o)
+           
             e = self.mean_squared_error_loss(Y, o)
+           
 
             if self.debugMode :
                 log.append(f"Epoch : {i}, MSE : {e}\n")
@@ -301,8 +309,8 @@ class NeuralNetwork():
                 # compute the momentum contribution for the hidden gradient update rule 
                 velocityHidden = alpha * oldGrad_hidden[j] + ((etas) * grad_hidden[j]) 
                 # compute penalty term for regularization
-                # penalty_term = lambda_reg * self.listOfWeightMatrices[j]
-                self.listOfWeightMatrices[j] = self.listOfWeightMatrices[j] + velocityHidden  # - penalty_term
+                penalty_term = lambda_reg * self.listOfWeightMatrices[j]
+                self.listOfWeightMatrices[j] = self.listOfWeightMatrices[j] + velocityHidden  - penalty_term
                 # save old momentum contribution for next iteration
                 oldGrad_hidden[j] = velocityHidden
             
@@ -310,9 +318,9 @@ class NeuralNetwork():
             # compute the momentum contribution for the output gradient update rule
             velocityOutput = alpha * oldGrad_output + ((etas) * grad_output)
             # compute penalty term for regularization 
-            # penalty_term = lambda_reg * self.listOfWeightMatrices[-1]
+            penalty_term = lambda_reg * self.listOfWeightMatrices[-1]
             # list[-1] = last elem of the list = weights between hidden and output
-            self.listOfWeightMatrices[-1] = self.listOfWeightMatrices[-1] + velocityOutput  # - penalty_term 
+            self.listOfWeightMatrices[-1] = self.listOfWeightMatrices[-1] + velocityOutput   - penalty_term 
             
             # save old momentum contribution for next iteration
             oldGrad_output = velocityOutput 
@@ -325,7 +333,18 @@ class NeuralNetwork():
                 file.write(string)
 
         return e
-        
+
+    @staticmethod
+    def classification_error(Y, o):
+        num_pattern = Y.shape[0]
+        # if output activation is sigmoid 
+        # o = (o >= 0.5).astype(int)  # Converte in 0 o 1
+        # if output activation is tanh 
+        o[o >= 0] = 1
+        o[o < 0] = -1
+        err = (Y != o).all(axis=1).astype(int)
+        return np.sum(err)/Y.shape[0]
+
 
     # added by Matteo Torchia to change learning rate
     def learning_rate_schedule(self, eta0, eta_tau, tau, step): 
@@ -336,7 +355,15 @@ class NeuralNetwork():
 
     def predict(self, inputX):
         return self.feedForeward(inputX, self.optimalListOfWeightMatrices)
-
+    
+    def predict_class(self, inputX):
+        o = self.predict(inputX)
+        # if last unit is sigmoid 
+        # o = (o >= 0.5).astype(int)  # Converte in 0 o 1
+        # if last unit is tanh 
+        o[o >= 0] = 1
+        o[o < 0] = -1
+        return o
 
     def get_list_weight_matrices(self):
         return self.listOfWeightMatrices
