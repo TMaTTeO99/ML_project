@@ -1,7 +1,16 @@
 import pandas as pd 
 from model import NeuralNetwork
 import numpy as np
+import myModelParameters as mmp
+import os 
+
 import math 
+
+
+modelParametersFile = "./finalModel.txt"
+
+
+
 
 # Carica il file 
 file_path = "./dataset/monk/monks-1.train"
@@ -26,18 +35,22 @@ input_test = pd.get_dummies(input_test, columns=input_test.columns[0:], drop_fir
 # convert to numpy 
 x = training_set.to_numpy()
 x_test = input_test.to_numpy()
-print(x_test)
-print(x_test.shape[0])
-print(x_test.shape[1])
-print("\n")
+
+#print(x_test)
+#print(x_test.shape[0])
+#print(x_test.shape[1])
+#print("\n")
+
 y = target.to_numpy().reshape(-1, 1)
 y_test = target_test.to_numpy().reshape(-1, 1)
+
 # if you want to use tanh 
 y[y == 0] = -1
 y_test[y_test == 0] = -1
-print(y)
-print(y.shape[0])
-print(y.shape[1])
+
+#print(y)
+#print(y.shape[0])
+#print(y.shape[1])
 
 # added selection mode (standard mode, debug mode)
 debugMode = False
@@ -52,26 +65,39 @@ while True:
     except ValueError :
         print(f"errore: {ValueError}")
 
-if debugMode == False:
-    print(f"Training...\n")
+if debugMode == False and os.path.isfile(modelParametersFile) :
 
-# instantiate the neural network
-model = NeuralNetwork([17,4,1], ['sigmoid','tanh'], debugMode)
+    objectReloaded = NeuralNetwork.realoadModel()
+    model = NeuralNetwork(objectReloaded.units_for_levels, objectReloaded.activation, debugMode)
+    
+    result = model.predict_class(x_test, True, "tanh", objectReloaded.weights)
+    print(f"classification error on TR set: {model.classification_error(result, y_test)}")
 
+else :
 
-# model.train(matrix, np.array([[2], [4], [6], [8], [10]]))
-model.train(x, y, 1000, 0.00001, "xavier", 5)
+    # instantiate the neural network
+    model = NeuralNetwork([17,4,1], ['sigmoid','tanh'], debugMode)
 
-result = model.predict_class(x_test)
-print(f"classification error on TR set: {model.classification_error(result,y_test)}")
+    model.train(x, y, 500, 0.00001, "xavier", 1)
 
-"""
-result = model.predict(np.array([ [4],
-                    [8],
-                    [16],
-                    [32],
-                    [64],
-                    ]) )
-"""
+    # retreive all parameters from model
+    mymodelparameters = mmp.myModelParameters(*model.getParameters())
 
-# print(f" predizione del log in base 2 di 1, 2 , 4 , 8 e 16  : {result}")
+    # save all parameters in a file
+    model.saveModel(mymodelparameters)
+
+    # predict after training
+    result = model.predict_class(x_test, False)
+
+    print(f"classification error on TR set: {model.classification_error(result, y_test)}")
+
+    """
+    result = model.predict(np.array([ [4],
+                        [8],
+                        [16],
+                        [32],
+                        [64],
+                        ]) )
+    """
+
+    # print(f" predizione del log in base 2 di 1, 2 , 4 , 8 e 16  : {result}")
