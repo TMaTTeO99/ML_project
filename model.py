@@ -1,5 +1,6 @@
 import numpy as np 
 import time 
+import pickle
 
 
 
@@ -96,7 +97,19 @@ class NeuralNetwork():
     # constructor  
     # units_for_levels is the list of units for each level, the length of the list is the number of levels
     # activation is a list of string with the name of the activation function for all the levels 
-    def __init__(self, units_for_levels, activation, dbgMode):
+    def __init__(self, units_for_levels, activation, dbgMode, eta0=0.8, eta_tau=0.5, tau=100, lambda_reg=0.01, alpha = 0.9):
+
+        self.activationListName = activation
+        # for variable learning rate
+        self.eta0 = eta0 
+        self.eta_tau = eta_tau 
+        self.tau = tau 
+
+        # Thikonov Regularization 
+        self.lambda_reg = lambda_reg
+
+        # momentum param
+        self.alpha = alpha
 
         self.debugMode = dbgMode
         self.units_for_levels = units_for_levels
@@ -258,23 +271,15 @@ class NeuralNetwork():
         i = 0
         e = float("inf")
 
-        # added by Matteo for variable learning rate
-        eta0 = 0.8
-        eta_tau = 0.5  
-        tau = 100
-
-
-        # momentum param
-        alpha = 0.9
+        
 
         # init old gradient for momentum 
         oldGrad_hidden = [np.zeros_like(w) for w in self.listOfWeightMatrices[:-1]]
         oldGrad_output = np.zeros_like(self.listOfWeightMatrices[-1])
 
-        #end added Matteo
+        
 
-        # Thikonov Regularization 
-        lambda_reg = 0.01
+        
 
         while i < epochs and e > treshold:
             
@@ -292,33 +297,33 @@ class NeuralNetwork():
             e = self.mean_squared_error_loss(Y, o)
            
 
-            if self.debugMode :
-                log.append(f"Epoch : {i}, MSE : {e}\n")
+            
+            log.append(f"Epoch : {i}, MSE : {e}\n")
 
 
             # added by Matteo
             # change learning rate
-            if i <= tau :
-                etas = self.learning_rate_schedule(eta0, eta_tau, tau, i)
+            if i <= self.tau :
+                etas = self.learning_rate_schedule(self.eta0, self.eta_tau, self.tau, i)
             else : 
-                etas = eta_tau
+                etas = self.eta_tau
             #end added
 
             for j in range(0, len(grad_hidden), 1):
                 
                 # compute the momentum contribution for the hidden gradient update rule 
-                velocityHidden = alpha * oldGrad_hidden[j] + ((etas) * grad_hidden[j]) 
+                velocityHidden = self.alpha * oldGrad_hidden[j] + ((etas) * grad_hidden[j]) 
                 # compute penalty term for regularization
-                penalty_term = lambda_reg * self.listOfWeightMatrices[j]
+                penalty_term = self.lambda_reg * self.listOfWeightMatrices[j]
                 self.listOfWeightMatrices[j] = self.listOfWeightMatrices[j] + velocityHidden  - penalty_term
                 # save old momentum contribution for next iteration
                 oldGrad_hidden[j] = velocityHidden
             
 
             # compute the momentum contribution for the output gradient update rule
-            velocityOutput = alpha * oldGrad_output + ((etas) * grad_output)
+            velocityOutput = self.alpha * oldGrad_output + ((etas) * grad_output)
             # compute penalty term for regularization 
-            penalty_term = lambda_reg * self.listOfWeightMatrices[-1]
+            penalty_term = self.lambda_reg * self.listOfWeightMatrices[-1]
             # list[-1] = last elem of the list = weights between hidden and output
             self.listOfWeightMatrices[-1] = self.listOfWeightMatrices[-1] + velocityOutput   - penalty_term 
             
@@ -328,22 +333,24 @@ class NeuralNetwork():
             i += 1
     
 
-        if self.debugMode :
-            for string in log:
-                file.write(string)
+        for string in log:
+            file.write(string)
+            
 
         return e
 
     @staticmethod
-    def classification_error(Y, o):
+    def classification_error(Y, o, activation="tanh"):
+
         num_pattern = Y.shape[0]
-        # if output activation is sigmoid 
-        # o = (o >= 0.5).astype(int)  # Converte in 0 o 1
-        # if output activation is tanh 
-        o[o >= 0] = 1
-        o[o < 0] = -1
+        if activation == "sigmoid":     
+            o = (o >= 0.5).astype(int)  # Converte in 0 o 1
+        elif activation == "tanh": 
+            o[o >= 0] = 1
+            o[o < 0] = -1
+        
         err = (Y != o).all(axis=1).astype(int)
-        return np.sum(err)/Y.shape[0]
+        return np.sum(err)/num_pattern
 
 
     # added by Matteo Torchia to change learning rate
@@ -353,18 +360,62 @@ class NeuralNetwork():
         return eta_s
     # end
 
-    def predict(self, inputX):
-        return self.feedForeward(inputX, self.optimalListOfWeightMatrices)
     
-    def predict_class(self, inputX):
-        o = self.predict(inputX)
-        # if last unit is sigmoid 
-        # o = (o >= 0.5).astype(int)  # Converte in 0 o 1
-        # if last unit is tanh 
-        o[o >= 0] = 1
-        o[o < 0] = -1
+    def predict(self, inputX, reloaded, optimalListOfWeightMatrices):
+        
+        #if reloaded == true then use optimalListOfWeightMatrices retreived from disk
+        if reloaded:
+            return self.feedForeward(inputX, optimalListOfWeightMatrices)
+        
+        #else use optimalListOfWeightMatrices in model just trained
+        else :
+            return self.feedForeward(inputX, self.optimalListOfWeightMatrices)
+    
+
+    def predict_class(self, inputX, reloaded, activation="tanh", optimalListOfWeightMatrices=None):
+
+        o = self.predict(inputX, reloaded, optimalListOfWeightMatrices)
+
+        if activation == "tanh":
+            o[o >= 0] = 1
+            o[o < 0] = -1    
+        elif activation == "sigmoid":
+            o = (o >= 0.5).astype(int)  # Converte in 0 o 1
         return o
 
     def get_list_weight_matrices(self):
         return self.listOfWeightMatrices
+    
+
+    # function to retreive all parameters from model
+    def getParameters(self):
+
+        return (self.listOfWeightMatrices, self.units_for_levels, self.activationListName, self.eta0, self.eta_tau, self.tau, self.lambda_reg, self.alpha)
+
+    # function to store all parameters on disk
+    @staticmethod
+    def saveModel(mymodelparameters, pathFile="./finalModel.txt"):
+        
+
+        with open(pathFile,  mode = 'wb') as fileModel: 
+            
+            modelAsString = pickle.dumps(mymodelparameters)
+            fileModel.write(modelAsString)
+
+
+    # function to read parameteres from disk
+    @staticmethod
+    def realoadModel(pathFile="./finalModel.txt"):
+
+        with open(pathFile,  mode = 'rb') as fileModel:
+
+            modelAsString = fileModel.read()
+            mymodelparameters = pickle.loads(modelAsString)
+
+        return mymodelparameters
+   
+
+
+
+
 
