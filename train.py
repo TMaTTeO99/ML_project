@@ -33,7 +33,7 @@ matrix = np.array([ [1],
                      ]) 
 """
 
-x = np.random.uniform(1,100,500).reshape(-1,1)
+x = np.random.uniform(1,1000,500).reshape(-1,1)
 y = np.log2(x) #math.log(x, 2)
 
 # model.train(matrix, np.array([[2], [4], [6], [8], [10]]))
