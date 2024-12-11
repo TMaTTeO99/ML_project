@@ -1,7 +1,7 @@
 import numpy as np 
 import time 
 import pickle
-
+import copy
 
 
 class NeuralNetwork():
@@ -120,7 +120,8 @@ class NeuralNetwork():
         self.initializeActivationFunctions(mdlParams.activation)
 
         if mdlParams.validationErrorCheck == True : 
-            self.listOfWeightMatrices = mdlParams.weights
+            # TODO: FIX HERE (i need a copy not the pointer)
+            self.listOfWeightMatrices = copy.deepcopy(mdlParams.weights)
 
 
        
@@ -238,9 +239,6 @@ class NeuralNetwork():
         while i < numberOfRestart:
 
             
-            #with open(f"./log{i}.txt", mode = 'w' ) as file:
-            #befoure:  etmp, logVL, logTR = self.realTraining(X, Y, epochs, treshold, initMode, file, xValid, yValid)
-            
             if validationErrorCheck :
                 etmp, logVL, logTR = self.realTraining(X, Y, epochs, treshold, initMode, validationErrorCheck, xValid, yValid)
                 optLogVL = logVL
@@ -248,14 +246,17 @@ class NeuralNetwork():
                 etmp, logTR = self.realTraining(X, Y, epochs, treshold, initMode, validationErrorCheck, xValid, yValid)
 
             # list of lists that contains TRlog for all training
-            listOfLogsTR.append(logTR)
+            
 
             if self.debugMode :
                 listLog.append(f" etmp for all iteration::::: {etmp} \n")
                 listLogMatrices.append(self.listOfWeightMatrices)
 
             if etmp < e:
-                self.optimalListOfWeightMatrices = self.listOfWeightMatrices
+
+                listOfLogsTR = logTR
+                # TODO: FIX HERE (i need a copy not the pointer)
+                self.optimalListOfWeightMatrices = copy.deepcopy(self.listOfWeightMatrices)
                 e = etmp         
             i += 1    
         
@@ -284,6 +285,7 @@ class NeuralNetwork():
 
     #befoure def realTraining(self, X, Y, epochs, treshold, initMode, file, xValid = None, yValid = None):
     def realTraining(self, X, Y, epochs, treshold, initMode, validationErrorCheck = False, xValid = None, yValid = None):
+        
         # initialization of the weight matrix to random small values 
         # we need a list of matrices, one for each layer, 
         # each matrix column represents the weight for a single unit of that level 
@@ -292,30 +294,26 @@ class NeuralNetwork():
         
         if validationErrorCheck == False : 
             self.listOfWeightMatrices = self.initalizeWeightMatrix(initMode)
-         
+            
 
-
-        
+        # TODO: FIX HERE (i need a copy not the pointer)
+        self.initWeights = copy.deepcopy(self.listOfWeightMatrices)
+ 
         # log for training 
         logTR = []  
 
         # log for validation
         if validationErrorCheck : logVL = []
         
-        i = 0
+        i = 1
         e = float("inf")
-
-        
 
         # init old gradient for momentum 
         oldGrad_hidden = [np.zeros_like(w) for w in self.listOfWeightMatrices[:-1]]
         oldGrad_output = np.zeros_like(self.listOfWeightMatrices[-1])
 
-        
 
-        
-
-        while i < epochs and e > treshold:
+        while i <= epochs and e > treshold:
             
             # print weight matrices
             if self.debugMode :
@@ -436,6 +434,8 @@ class NeuralNetwork():
     def get_list_weight_matrices(self):
         return self.listOfWeightMatrices
     
+    def get_list_init_weight_matrices(self):
+        return self.initWeights
 
     # function to retreive all parameters from model
     def getParameters(self):

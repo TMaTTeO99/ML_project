@@ -39,14 +39,14 @@ class myModelParameters:
         rangeEpochs = [10, 20]
         """
 
-        rangeEta = [ 0.5, 0.6]
-        rangeLambda = [0.01, 0.1]
-        rangeAlpha = [0.5, 0.6]
-        rangeEpochs = [10]
+        rangeEta = [0.8, 0.6]
+        rangeLambda = [0.001, 0.1]
+        rangeAlpha = [0.9, 0.6]
+        rangeEpochs = [50]
 
 
 
-        optlistOfLogsTR = []
+        optLogsTR = []
         startWeightsForOptimalTraining = []
 
         optModel = None
@@ -59,11 +59,12 @@ class myModelParameters:
                         prm = myModelParameters(None, units_for_levels, activation, False, eta, -1, -1, Lambda, Alpha)
                         model = NeuralNetwork(prm, debugMode)
                         
-                        trainError, listOfLogsTR = model.train(xTrain, yTrain, epochs, 0.0001, "random", 1, False, xValid, yValid)
-
+                        trainError, LogsTR = model.train(xTrain, yTrain, epochs, 0.0001, "random", 1, False, xValid, yValid)
 
                         result = model.predict_class(xValid, False)
                         valError = model.classification_error(result, yValid)  
+                        
+
                         if debugMode : 
                             print(f"classification error on VL set: {valError}")
                         
@@ -74,14 +75,14 @@ class myModelParameters:
                             optimalValue = (trainError, valError, optWeights)
                             optimalKeys = (eta, Lambda, Alpha, epochs)
                             optModel = model
-                            optlistOfLogsTR = listOfLogsTR
-                            startWeightsForOptimalTraining = optModel.get_list_weight_matrices()
+                            optLogsTR = LogsTR
+                            startWeightsForOptimalTraining = optModel.get_list_init_weight_matrices()
 
         # retraining model with best hiperparameters
 
         modelToBuildValidationError = NeuralNetwork(myModelParameters(startWeightsForOptimalTraining, units_for_levels, activation, False, optimalKeys[0], -1, -1, optimalKeys[1], optimalKeys[1], True), debugMode)
         
-        trainError, logVL, listOfLogsTR = modelToBuildValidationError.train(xTrain, yTrain, optimalKeys[3], 0.0001, "random", 1, True, xValid, yValid)
+        trainError, logVL, LogsTR = modelToBuildValidationError.train(xTrain, yTrain, optimalKeys[3], 0.0001, "random", 1, True, xValid, yValid)
 
 
-        return optModel, resultOptIperParam, optimalKeys, optimalValue, optlistOfLogsTR, logVL
+        return optModel, resultOptIperParam, optimalKeys, optimalValue, optLogsTR, logVL

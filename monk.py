@@ -3,6 +3,7 @@ from model import NeuralNetwork
 import numpy as np
 import myModelParameters as mmp
 import os 
+import matplotlib.pyplot as plt
 
 import math 
 
@@ -83,8 +84,34 @@ else :
     if inputG == "g":
         
 
-        modelWithGridSearch, result, optimalKeys, optimalValue, optlistOfLogsTR, logVL = mmp.myModelParameters.doGridSearch(x, x_test, y, y_test, [17,4,1], ['sigmoid','tanh'], debugMode)
-
+        modelWithGridSearch, result, optimalKeys, optimalValue, optLogsTR, logVL = mmp.myModelParameters.doGridSearch(x, x_test, y, y_test, [17,4,1], ['sigmoid','tanh'], debugMode)
+        xasses = []
+        yasses = []
+        xassesVL = []
+        yassesVL = []
+        
+        for str in logVL:
+            Mytuple = str.split(",")
+            
+            xassesVL.append(int(Mytuple[0].split(":")[1]))
+            yassesVL.append(float(Mytuple[1].split(":")[1]))
+        
+        
+        for str in optLogsTR:
+            Mytuple = str.split(",")
+            
+            xasses.append(int(Mytuple[0].split(":")[1]))
+            yasses.append(float(Mytuple[1].split(":")[1]))
+        
+        plt.plot(np.array(xasses), np.array(yasses), linestyle="dashed")
+        plt.plot(np.array(xassesVL), np.array(yassesVL))
+        plt.legend("TR error", "VL error")
+        
+        #plt.title("Validation Set Error")
+        plt.xlabel("eposchs")
+        plt.grid(True)
+        plt.show()
+        
     else :    
         # instantiate the neural network  units_for_levels, activation, VariableLROption = False, eta0=0.8, eta_tau=0.5, tau=100, lambda_reg=0.01, alpha = 0.9
         param = mmp.myModelParameters(None, [17,4,1], ['sigmoid','tanh'], True, 0.8, 0.5, 100, 0.01, 0.9)
