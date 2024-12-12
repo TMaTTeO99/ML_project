@@ -1,7 +1,7 @@
 import numpy as np 
 import time 
 import pickle
-
+import copy
 
 
 class NeuralNetwork():
@@ -94,28 +94,36 @@ class NeuralNetwork():
             elif  activation[levels] == 'tanh':
                 self.activation.append(self.linear)
 
-    # constructor  
+    # constructor  self, mdlParams, units_for_levels, activation, dbgMode, VariableLROption, eta0=0.8, eta_tau=0.5, tau=100, lambda_reg=0.01, alpha = 0.9
     # units_for_levels is the list of units for each level, the length of the list is the number of levels
     # activation is a list of string with the name of the activation function for all the levels 
-    def __init__(self, units_for_levels, activation, dbgMode, eta0=0.8, eta_tau=0.5, tau=100, lambda_reg=0.01, alpha = 0.9):
+    def __init__(self, mdlParams, dbgMode):
 
-        self.activationListName = activation
+        
+        self.VariableLROption = mdlParams.VariableLROption
+        self.activationListName = mdlParams.activation
         # for variable learning rate
-        self.eta0 = eta0 
-        self.eta_tau = eta_tau 
-        self.tau = tau 
+        self.eta0 = mdlParams.eta0 
+        self.eta_tau = mdlParams.eta_tau 
+        self.tau = mdlParams.tau 
 
         # Thikonov Regularization 
-        self.lambda_reg = lambda_reg
+        self.lambda_reg = mdlParams.lambda_reg
 
         # momentum param
-        self.alpha = alpha
+        self.alpha = mdlParams.alpha
 
         self.debugMode = dbgMode
-        self.units_for_levels = units_for_levels
-        self.numberOfLevels = len(units_for_levels)-1
+        self.units_for_levels = mdlParams.units_for_levels
+        self.numberOfLevels = len(mdlParams.units_for_levels)-1
 
-        self.initializeActivationFunctions(activation)
+        self.initializeActivationFunctions(mdlParams.activation)
+
+        if mdlParams.validationErrorCheck == True : 
+            # TODO: FIX HERE (i need a copy not the pointer)
+            self.listOfWeightMatrices = copy.deepcopy(mdlParams.weights)
+
+
        
     
     # inputX is an input Matrix 
@@ -210,12 +218,15 @@ class NeuralNetwork():
         return grad_output.T, grad_hidden
 
 
-    def train (self, X, Y, epochs=100, treshold=0.1, initMode="random", numberOfRestart=5):
+    def train (self, X, Y, epochs=100, treshold=0.1, initMode="random", numberOfRestart=5, validationErrorCheck = False, xValid = None, yValid = None):
         
-        self.selectOptimalStartingWeights(X, Y, epochs, treshold, initMode, numberOfRestart)
-
+        if validationErrorCheck :
+            return self.selectOptimalStartingWeights(X, Y, epochs, treshold, initMode, numberOfRestart, validationErrorCheck, xValid, yValid)
+        else : 
+            return self.selectOptimalStartingWeights(X, Y, epochs, treshold, initMode, numberOfRestart)
+        
                 
-    def selectOptimalStartingWeights(self, X, Y, epochs, treshold, initMode, numberOfRestart):
+    def selectOptimalStartingWeights(self, X, Y, epochs, treshold, initMode, numberOfRestart, validationErrorCheck = False, xValid = None, yValid = None):
 
         
         self.optimalListOfWeightMatrices = []
@@ -223,11 +234,17 @@ class NeuralNetwork():
         i = 0
         listLog = []
         listLogMatrices = [] 
+        optLogVL = []
+        listOfLogsTR = []
         while i < numberOfRestart:
 
             
-            with open(f"./log{i}.txt", mode = 'w' ) as file:
-                etmp = self.realTraining(X, Y, epochs, treshold, initMode, file)
+            if validationErrorCheck :
+                etmp, logVL, logTR = self.realTraining(X, Y, epochs, treshold, initMode, validationErrorCheck, xValid, yValid)
+            else : 
+                etmp, logTR = self.realTraining(X, Y, epochs, treshold, initMode, validationErrorCheck, xValid, yValid)
+
+            # list of lists that contains TRlog for all training
             
 
             if self.debugMode :
@@ -235,7 +252,15 @@ class NeuralNetwork():
                 listLogMatrices.append(self.listOfWeightMatrices)
 
             if etmp < e:
-                self.optimalListOfWeightMatrices = self.listOfWeightMatrices
+                
+                if validationErrorCheck :
+                    optLogVL = copy.deepcopy(logVL)
+                
+                listOfLogsTR = copy.deepcopy(logTR)
+                # TODO: FIX HERE (i need a copy not the pointer)
+                self.optimalListOfWeightMatrices = copy.deepcopy(self.listOfWeightMatrices)
+                # TODO: FIX HERE (i need a copy not the pointer)
+                self.initWeights = copy.deepcopy(self.tmpStartWeights)
                 e = etmp         
             i += 1    
         
@@ -255,33 +280,44 @@ class NeuralNetwork():
             self.print_matrices_fancy(self.optimalListOfWeightMatrices)
         
 
+        #TODO: write on file optLogVL for plot
 
+        if validationErrorCheck : 
+            return e, optLogVL, listOfLogsTR
+        else :
+            return e, listOfLogsTR
 
-    def realTraining(self, X, Y, epochs, treshold, initMode, file):
+    #befoure def realTraining(self, X, Y, epochs, treshold, initMode, file, xValid = None, yValid = None):
+    def realTraining(self, X, Y, epochs, treshold, initMode, validationErrorCheck = False, xValid = None, yValid = None):
+        
         # initialization of the weight matrix to random small values 
         # we need a list of matrices, one for each layer, 
         # each matrix column represents the weight for a single unit of that level 
         # matrix for level l in position i,j  has the weight from unit j to unit i
         # the matix is m x n where m is the number of input unit and n is the number of the unit of that level
-        self.listOfWeightMatrices = self.initalizeWeightMatrix(initMode)
-
-        if self.debugMode :
-            log = []  
-
-        i = 0
-        e = float("inf")
+        
+        if validationErrorCheck == False : 
+            self.listOfWeightMatrices = self.initalizeWeightMatrix(initMode)
+        
+        self.tmpStartWeights = copy.deepcopy(self.listOfWeightMatrices)
 
         
+ 
+        # log for training 
+        logTR = []  
+
+        # log for validation
+        if validationErrorCheck : logVL = []
+        
+        i = 1
+        e = float("inf")
 
         # init old gradient for momentum 
         oldGrad_hidden = [np.zeros_like(w) for w in self.listOfWeightMatrices[:-1]]
         oldGrad_output = np.zeros_like(self.listOfWeightMatrices[-1])
 
-        
 
-        
-
-        while i < epochs and e > treshold:
+        while i <= epochs and e > treshold:
             
             # print weight matrices
             if self.debugMode :
@@ -293,22 +329,34 @@ class NeuralNetwork():
 
             # print the error 
             grad_output, grad_hidden = self.backPropagate(X, Y, o)
-           
+
+            # compute VL error for 10 % of iterations
+            # and i % (epochs * 0.1) == 0
+            if validationErrorCheck   :
+                outVal = self.feedForeward(xValid, self.listOfWeightMatrices) 
+                eVL = self.classification_error(yValid, outVal, activation="tanh")
+                logVL.append(f"Epoch : {i}, MSE : {eVL}\n")
+                
+
+
+
             e = self.mean_squared_error_loss(Y, o)
-           
 
+            # TODO : salavre l'indice dell iterazione ed errore e plottare
             
-            log.append(f"Epoch : {i}, MSE : {e}\n")
+            logTR.append(f"Epoch : {i}, MSE : {e}\n")
 
 
-            # added by Matteo
             # change learning rate
-            if i <= self.tau :
-                etas = self.learning_rate_schedule(self.eta0, self.eta_tau, self.tau, i)
-            else : 
-                etas = self.eta_tau
-            #end added
-
+            # if variable learning rate is enable
+            if self.VariableLROption :
+                if i <= self.tau :
+                    etas = self.learning_rate_schedule(self.eta0, self.eta_tau, self.tau, i)
+                else : 
+                    etas = self.eta_tau
+            else:
+                etas = self.eta0
+            
             for j in range(0, len(grad_hidden), 1):
                 
                 # compute the momentum contribution for the hidden gradient update rule 
@@ -332,12 +380,17 @@ class NeuralNetwork():
 
             i += 1
     
-
-        for string in log:
+        """
+        for string in logTR:
             file.write(string)
-            
 
-        return e
+        """
+        
+        #scrivere il class err in un file per poi plottare     
+        if validationErrorCheck :
+            return e, logVL, logTR
+        else : 
+            return e, logTR
 
     @staticmethod
     def classification_error(Y, o, activation="tanh"):
@@ -364,7 +417,7 @@ class NeuralNetwork():
     def predict(self, inputX, reloaded, optimalListOfWeightMatrices):
         
         #if reloaded == true then use optimalListOfWeightMatrices retreived from disk
-        if reloaded:
+        if reloaded :
             return self.feedForeward(inputX, optimalListOfWeightMatrices)
         
         #else use optimalListOfWeightMatrices in model just trained
@@ -386,11 +439,15 @@ class NeuralNetwork():
     def get_list_weight_matrices(self):
         return self.listOfWeightMatrices
     
+    def get_list_init_weight_matrices(self):
+        return self.initWeights
 
     # function to retreive all parameters from model
     def getParameters(self):
+        return (self.optimalListOfWeightMatrices, self.units_for_levels, self.activationListName, self.eta0, self.eta_tau, self.tau, self.lambda_reg, self.alpha)
 
-        return (self.listOfWeightMatrices, self.units_for_levels, self.activationListName, self.eta0, self.eta_tau, self.tau, self.lambda_reg, self.alpha)
+    def getOptimalWeights(self):
+        return self.optimalListOfWeightMatrices
 
     # function to store all parameters on disk
     @staticmethod

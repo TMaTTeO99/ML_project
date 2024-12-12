@@ -3,8 +3,10 @@ from model import NeuralNetwork
 import numpy as np
 import myModelParameters as mmp
 import os 
+import matplotlib.pyplot as plt
 
 import math 
+
 
 
 modelParametersFile = "./finalModel.txt"
@@ -57,8 +59,8 @@ debugMode = False
 
 while True:
     try :
-        input = input("insert \"y\" for debug mode or others for standard mode\n")
-        if input == "y":
+        inp = input("insert \"y\" for debug mode or others for standard mode\n")
+        if inp == "y":
             debugMode = True
         else: debugMode = False
         break
@@ -68,36 +70,75 @@ while True:
 if debugMode == False and os.path.isfile(modelParametersFile) :
 
     objectReloaded = NeuralNetwork.realoadModel()
-    model = NeuralNetwork(objectReloaded.units_for_levels, objectReloaded.activation, debugMode)
+    model = NeuralNetwork(objectReloaded, debugMode)
     
     result = model.predict_class(x_test, True, "tanh", objectReloaded.weights)
     print(f"classification error on TR set: {model.classification_error(result, y_test)}")
 
 else :
 
-    # instantiate the neural network
-    model = NeuralNetwork([17,4,1], ['sigmoid','tanh'], debugMode)
 
-    model.train(x, y, 500, 0.00001, "xavier", 1)
+    #(xTrain, xValid, yTrain, yValid, units_for_levels, activation, debugMode)
+    inputG = input("insert \"g\" for Grid Search, otherwise another character\n")
+    # do grid search 
+    if inputG == "g":
+        
 
-    # retreive all parameters from model
-    mymodelparameters = mmp.myModelParameters(*model.getParameters())
+        modelWithGridSearch, result, optimalKeys, optimalValue, optLogsTR, logVL = mmp.myModelParameters.doGridSearch(x, x_test, y, y_test, [17,4,1], ['sigmoid','tanh'], debugMode)
+        xasses = []
+        yasses = []
+        xassesVL = []
+        yassesVL = []
+        
+        for str in logVL:
+            Mytuple = str.split(",")
+            
+            xassesVL.append(int(Mytuple[0].split(":")[1]))
+            yassesVL.append(float(Mytuple[1].split(":")[1]))
+        
+        
+        for str in optLogsTR:
+            Mytuple = str.split(",")
+            
+            xasses.append(int(Mytuple[0].split(":")[1]))
+            yasses.append(float(Mytuple[1].split(":")[1]))
+        
+        plt.plot(np.array(xasses), np.array(yasses), linestyle="dashed")
+        plt.plot(np.array(xassesVL), np.array(yassesVL))
+        plt.legend("TR error", "VL error")
+        
+        #plt.title("Validation Set Error")
+        plt.xlabel("eposchs")
+        plt.grid(True)
+        plt.show()
+        
+    else :    
+        # instantiate the neural network  units_for_levels, activation, VariableLROption = False, eta0=0.8, eta_tau=0.5, tau=100, lambda_reg=0.01, alpha = 0.9
+        param = mmp.myModelParameters(None, [17,4,1], ['sigmoid','tanh'], True, 0.8, 0.5, 100, 0.01, 0.9)
+        model = NeuralNetwork(param, debugMode)
 
-    # save all parameters in a file
-    model.saveModel(mymodelparameters)
+        model.train(x, y, 20, 0.00001, "xavier", 1)
 
-    # predict after training
-    result = model.predict_class(x_test, False)
+        # retreive all parameters from model
+        mymodelparameters = mmp.myModelParameters(*model.getParameters())
 
-    print(f"classification error on TR set: {model.classification_error(result, y_test)}")
+        # save all parameters in a file
+        model.saveModel(mymodelparameters)
 
-    """
-    result = model.predict(np.array([ [4],
-                        [8],
-                        [16],
-                        [32],
-                        [64],
-                        ]) )
-    """
+        # predict after training
+        result = model.predict_class(x_test, False)
 
-    # print(f" predizione del log in base 2 di 1, 2 , 4 , 8 e 16  : {result}")
+        print(f"classification error on TR set: {model.classification_error(result, y_test)}")
+
+        """
+        result = model.predict(np.array([ [4],
+                            [8],
+                            [16],
+                            [32],
+                            [64],
+                            ]) )
+        """
+
+        # print(f" predizione del log in base 2 di 1, 2 , 4 , 8 e 16  : {result}")
+
+    
