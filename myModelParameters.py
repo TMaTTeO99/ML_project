@@ -39,10 +39,10 @@ class myModelParameters:
         rangeEpochs = [10, 20]
         """
 
-        rangeEta = [0.8, 0.6]
-        rangeLambda = [0.001, 0.1]
-        rangeAlpha = [0.9, 0.6]
-        rangeEpochs = [50]
+        rangeEta = [0.8]
+        rangeLambda = [0.01]
+        rangeAlpha = [0.9]
+        rangeEpochs = [500]
 
 
 
@@ -56,16 +56,16 @@ class myModelParameters:
                 for Alpha in rangeAlpha:
                     for epochs in rangeEpochs:
 
-                        prm = myModelParameters(None, units_for_levels, activation, False, eta, -1, -1, Lambda, Alpha)
+                        prm = myModelParameters(None, units_for_levels, activation, True, eta, 0.5, 100, Lambda, Alpha)
                         model = NeuralNetwork(prm, debugMode)
                         
                         trainError, LogsTR = model.train(xTrain, yTrain, epochs, 0.0001, "random", 1, False, xValid, yValid)
 
                         result = model.predict_class(xValid, False)
-                        valError = model.classification_error(result, yValid)  
+                        valError = model.classification_error(yValid, result)
                         
 
-                        if debugMode : 
+                        if debugMode :
                             print(f"classification error on VL set: {valError}")
                         
                         optWeights = model.getOptimalWeights()
@@ -78,11 +78,39 @@ class myModelParameters:
                             optLogsTR = LogsTR
                             startWeightsForOptimalTraining = optModel.get_list_init_weight_matrices()
 
+
         # retraining model with best hiperparameters
+        modelToBuildValidationError = NeuralNetwork(myModelParameters(startWeightsForOptimalTraining, units_for_levels, activation, True, optimalKeys[0], 0.5, 100, optimalKeys[1], optimalKeys[2], True), debugMode)
+        trainError, logVL, LogsTR = modelToBuildValidationError.train(xTrain, yTrain, 1000, 0.0001, "random", 1, True, xValid, yValid)
 
-        modelToBuildValidationError = NeuralNetwork(myModelParameters(startWeightsForOptimalTraining, units_for_levels, activation, False, optimalKeys[0], -1, -1, optimalKeys[1], optimalKeys[1], True), debugMode)
+        result = modelToBuildValidationError.predict_class(xValid, False)
+        valError = modelToBuildValidationError.classification_error(yValid, result)
         
-        trainError, logVL, LogsTR = modelToBuildValidationError.train(xTrain, yTrain, optimalKeys[3], 0.0001, "random", 1, True, xValid, yValid)
+        print(f"****************************************************************\n")
+        print(f"****************************************************************\n")
+        print(f"valError :\n")
+        print(f"{valError}\n")
+        
 
 
-        return optModel, resultOptIperParam, optimalKeys, optimalValue, optLogsTR, logVL
+        print(f"****************************************************************\n")
+        print(f"****************************************************************\n")
+
+
+        print(f"logVL:\n")
+        for kk in logVL : 
+            print(f" {kk}")
+        
+        print(f"****************************************************************\n")
+        print(f"****************************************************************\n")
+        print(f"****************************************************************\n")
+        print(f"****************************************************************\n")
+        print(f"****************************************************************\n")
+
+        print(f"LogsTR:\n")
+        for kk in LogsTR : 
+            print(f" {kk}")
+
+
+
+        return optModel, resultOptIperParam, optimalKeys, optimalValue, LogsTR, logVL

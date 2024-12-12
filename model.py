@@ -241,7 +241,6 @@ class NeuralNetwork():
             
             if validationErrorCheck :
                 etmp, logVL, logTR = self.realTraining(X, Y, epochs, treshold, initMode, validationErrorCheck, xValid, yValid)
-                optLogVL = logVL
             else : 
                 etmp, logTR = self.realTraining(X, Y, epochs, treshold, initMode, validationErrorCheck, xValid, yValid)
 
@@ -253,10 +252,15 @@ class NeuralNetwork():
                 listLogMatrices.append(self.listOfWeightMatrices)
 
             if etmp < e:
-
-                listOfLogsTR = logTR
+                
+                if validationErrorCheck :
+                    optLogVL = copy.deepcopy(logVL)
+                
+                listOfLogsTR = copy.deepcopy(logTR)
                 # TODO: FIX HERE (i need a copy not the pointer)
                 self.optimalListOfWeightMatrices = copy.deepcopy(self.listOfWeightMatrices)
+                # TODO: FIX HERE (i need a copy not the pointer)
+                self.initWeights = copy.deepcopy(self.tmpStartWeights)
                 e = etmp         
             i += 1    
         
@@ -294,10 +298,10 @@ class NeuralNetwork():
         
         if validationErrorCheck == False : 
             self.listOfWeightMatrices = self.initalizeWeightMatrix(initMode)
-            
+        
+        self.tmpStartWeights = copy.deepcopy(self.listOfWeightMatrices)
 
-        # TODO: FIX HERE (i need a copy not the pointer)
-        self.initWeights = copy.deepcopy(self.listOfWeightMatrices)
+        
  
         # log for training 
         logTR = []  
@@ -327,7 +331,8 @@ class NeuralNetwork():
             grad_output, grad_hidden = self.backPropagate(X, Y, o)
 
             # compute VL error for 10 % of iterations
-            if validationErrorCheck and i % (epochs * 0.1) == 0  :
+            # and i % (epochs * 0.1) == 0
+            if validationErrorCheck   :
                 outVal = self.feedForeward(xValid, self.listOfWeightMatrices) 
                 eVL = self.classification_error(yValid, outVal, activation="tanh")
                 logVL.append(f"Epoch : {i}, MSE : {eVL}\n")
