@@ -62,7 +62,7 @@ class NeuralNetwork():
                 return self.getXavierWeights()
         
     
-      
+    """
     def mean_squared_error_loss (self, Y, O):
         num_pattern = Y.shape[0]
         diff = Y - O 
@@ -70,6 +70,13 @@ class NeuralNetwork():
         squared_error = np.sum(squared_error, axis = 1)
         squared_error = np.sum(squared_error)
         return squared_error/num_pattern
+    """
+    # Correct Averaging: MSE is the mean of squared errors over all data points and all features.
+    def mean_squared_error_loss(self, Y, O):
+        diff = Y - O
+        squared_error = np.square(diff)
+        mse = np.mean(squared_error)  
+        return mse
 
     @staticmethod
     def print_matrices_fancy(list_to_print):
