@@ -1,4 +1,6 @@
 from model import NeuralNetwork
+from sklearn.model_selection import KFold
+
 class myModelParameters:
 
 
@@ -17,6 +19,21 @@ class myModelParameters:
         self.lambda_reg = lambda_reg
         self.alpha = alpha
     
+
+
+
+    # function to split data set in k-fold
+    @staticmethod
+    def kFoldPartition(trainingForSelection, k):
+
+
+        kf = KFold(n_splits=k, shuffle=False)
+        splits = []
+        for trainIDX, validIDX in kf.split(trainingForSelection):
+            splits.append((trainingForSelection[trainIDX] , trainingForSelection[validIDX]))    
+        
+        return splits 
+
 
     @staticmethod
     def doGridSearch(xTrain, xValid, yTrain, yValid, units_for_levels, activation, debugMode):
@@ -38,48 +55,75 @@ class myModelParameters:
         rangeAlpha = [0.8, 0.9]
         rangeEpochs = [10, 20]
         """
-
-        rangeEta = [0.8]
-        rangeLambda = [0.01]
-        rangeAlpha = [0.9]
-        rangeEpochs = [500]
-
-
+    
+        rangeEta0 = [0.1]
+        rangeLambda = [0.1, 0.01, 0.001]
+        rangeAlpha = [0.1, 0.5, 0.9]
+        rangeEpochs = [100, 200, 300, 500]
+        rangeEtaFinal = [0.01, 0.1, 0.001]
 
         optLogsTR = []
         startWeightsForOptimalTraining = []
 
         optModel = None
         # start with learning rate
-        for eta in rangeEta:
-            for Lambda in rangeLambda:
-                for Alpha in rangeAlpha:
-                    for epochs in rangeEpochs:
+        for idxEta0, eta0 in enumerate(rangeEta0):
+            for idxetaF, etaFinal in enumerate(rangeEtaFinal):
+                for idxLambda , Lambda in enumerate(rangeLambda):
+                    for idxAlpha, Alpha in enumerate(rangeAlpha):
+                        for idxepochs, epochs in enumerate(rangeEpochs):
 
-                        prm = myModelParameters(None, units_for_levels, activation, True, eta, 0.5, 100, Lambda, Alpha)
-                        model = NeuralNetwork(prm, debugMode)
-                        
-                        trainError, LogsTR = model.train(xTrain, yTrain, epochs, 0.0001, "random", 1, False, xValid, yValid)
+                            print(f"idxs combination: idxEta0 : {idxEta0} , idxetaF : {idxetaF} , idxLambda : {idxLambda} , idxAlpha : {idxAlpha} , idxepochs : {idxepochs}")
+                            
+                            prm = myModelParameters(None, units_for_levels, activation, True, eta0, etaFinal, epochs / 3 , Lambda, Alpha)
+                            model = NeuralNetwork(prm, debugMode)
+                            
 
-                        result = model.predict_class(xValid, False)
-                        valError = model.classification_error(yValid, result)
-                        
+                            trainError, LogsTR = model.train(xTrain, yTrain, epochs, 0.0001, "random", 5, False, xValid, yValid)
 
-                        if debugMode :
-                            print(f"classification error on VL set: {valError}")
-                        
-                        optWeights = model.getOptimalWeights()
-                        resultOptIperParam[(eta, Lambda, Alpha, epochs)] = (trainError, valError, optWeights)
+                            #for classification 
+                            #result = model.predict_class(xValid, False)
+                            
+                            #for regretion
+                            try :
+                                result = model.predict(xValid, False, None)
 
-                        if valError < optimalValue[1] :
-                            optimalValue = (trainError, valError, optWeights)
-                            optimalKeys = (eta, Lambda, Alpha, epochs)
-                            optModel = model
-                            optLogsTR = LogsTR
-                            startWeightsForOptimalTraining = optModel.get_list_init_weight_matrices()
+                                #for classification 
+                                #valError = model.classification_error(yValid, result)
+                                
+                                #for regretion
+                                valError = model.mean_squared_error_loss(yValid, result)
+                                
+
+                                if debugMode :
+                                    #for classification
+                                    #print(f"classification error on VL set: {valError}")
+                                    
+                                    #for regression
+                                    print(f"MS error on VL set: {valError}")
+                                
+                                optWeights = model.getOptimalWeights()
+                                resultOptIperParam[(eta0, etaFinal, Lambda, Alpha, epochs)] = (trainError, valError, optWeights, model.get_list_init_weight_matrices())
+
+                                if valError < optimalValue[1] :
+                                    optimalValue = (trainError, valError, optWeights)
+                                    optimalKeys = (eta0, etaFinal, Lambda, Alpha, epochs)
+                                    optModel = model
+                                    optLogsTR = LogsTR
+                                    startWeightsForOptimalTraining = optModel.get_list_init_weight_matrices()
+                            except ValueError :
+                                print(ValueError)
+                                print(f" bad combination: {eta0}, {etaFinal}, {Lambda}, {Alpha}, {epochs}\n")
+
+
+                            
+
+
 
 
         # retraining model with best hiperparameters
+        """
+        
         modelToBuildValidationError = NeuralNetwork(myModelParameters(startWeightsForOptimalTraining, units_for_levels, activation, True, optimalKeys[0], 0.5, 100, optimalKeys[1], optimalKeys[2], True), debugMode)
         trainError, logVL, LogsTR = modelToBuildValidationError.train(xTrain, yTrain, 1000, 0.0001, "random", 1, True, xValid, yValid)
 
@@ -114,3 +158,5 @@ class myModelParameters:
 
 
         return optModel, resultOptIperParam, optimalKeys, optimalValue, LogsTR, logVL
+        """
+        return resultOptIperParam

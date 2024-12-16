@@ -341,7 +341,13 @@ class NeuralNetwork():
             # and i % (epochs * 0.1) == 0
             if validationErrorCheck   :
                 outVal = self.feedForeward(xValid, self.listOfWeightMatrices) 
-                eVL = self.classification_error(yValid, outVal, activation="tanh")
+                
+                #for classification
+                #eVL = self.classification_error(yValid, outVal, activation="tanh")
+                
+                #for regretion
+                eVL = self.mean_squared_error_loss(yValid, outVal, activation="tanh")
+                
                 logVL.append(f"Epoch : {i}, MSE : {eVL}\n")
                 
 
@@ -411,7 +417,7 @@ class NeuralNetwork():
         
         err = (Y != o).all(axis=1).astype(int)
         return np.sum(err)/num_pattern
-
+    
 
     # added by Matteo Torchia to change learning rate
     def learning_rate_schedule(self, eta0, eta_tau, tau, step): 
