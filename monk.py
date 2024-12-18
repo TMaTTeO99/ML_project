@@ -47,8 +47,8 @@ y = target.to_numpy().reshape(-1, 1)
 y_test = target_test.to_numpy().reshape(-1, 1)
 
 # if you want to use tanh 
-y[y == 0] = -1
-y_test[y_test == 0] = -1
+# y[y == 0] = -1
+# y_test[y_test == 0] = -1
 
 #print(y)
 #print(y.shape[0])
@@ -85,7 +85,7 @@ else :
         
         #  optModel, resultOptIperParam, optimalKeys, optimalValue, LogsTR, logVL
 
-        modelWithGridSearch, result, optimalKeys, optimalValue, optLogsTR, logVL = mmp.myModelParameters.doGridSearch(x, x_test, y, y_test, [17,4,1], ['sigmoid','tanh'], task = 'classification')
+        modelWithGridSearch, result, optimalKeys, optimalValue, optLogsTR, logVL = mmp.myModelParameters.doGridSearch(x, x_test, y, y_test, [17,4,1], ['sigmoid','sigmoid'], task = 'classification')
         xasses = []
         yasses = []
         xassesVL = []

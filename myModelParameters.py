@@ -109,21 +109,17 @@ class myModelParameters:
                             model = NeuralNetwork(prm)
                             
 
-                            trainError, LogsTR = model.train(xTrain, yTrain, epochs, None ,0.0001, "random", 5, False, xValid, yValid)
+                            trainError, LogsTR = model.train(xTrain, yTrain, epochs, None, 0.0001, "random", 5, False, xValid, yValid)
                             
                             if task == 'classification':
                                 #for classification 
                                 result = model.predict_class(xValid, False)
-                            else:
-                                #for regretion
-                                result = model.predict(xValid, False, None)
-
-                            if task == 'classification':
-                                #for classification 
                                 valError = model.classification_error(yValid, result)
                             else:
                                 #for regretion
+                                result = model.predict(xValid, False, None)
                                 valError = model.mean_squared_error_loss(yValid, result)
+                                
                                 
                             optWeights = model.getOptimalWeights()
                             resultOptIperParam[(eta0, etaFinal, Lambda, Alpha, epochs)] = (trainError, valError, optWeights, model.get_list_init_weight_matrices())
@@ -142,9 +138,9 @@ class myModelParameters:
 
 
         # retraining model with best hiperparameters
-
-        modelToBuildValidationError = NeuralNetwork(myModelParameters(startWeightsForOptimalTraining, units_for_levels, activation, True, optimalKeys[0], 0.5, 100, optimalKeys[1], optimalKeys[2], True, task = 'classification'))
-        trainError, logVL, LogsTR = modelToBuildValidationError.train(xTrain, yTrain, 1000, None, 0.0001, "random", 1, True, xValid, yValid)
+        # weights, units_for_levels, activation, VariableLROption = False, eta0=0.8, eta_tau=0.5, tau=100, lambda_reg=0.01, alpha = 0.9, validationErrorCheck = False, task = None
+        modelToBuildValidationError = NeuralNetwork(myModelParameters(startWeightsForOptimalTraining, units_for_levels, activation, True, optimalKeys[0], optimalKeys[1], 100, optimalKeys[2], optimalKeys[3], True, task = 'classification'))
+        trainError, logVL, LogsTR = modelToBuildValidationError.train(xTrain, yTrain, optimalKeys[4], None, 0.0001, "random", 1, True, xValid, yValid)
 
         result = modelToBuildValidationError.predict_class(xValid, False)
         valError = modelToBuildValidationError.classification_error(yValid, result)
