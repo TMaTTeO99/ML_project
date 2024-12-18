@@ -43,6 +43,7 @@ class NeuralNetwork():
         if derivative:
             tanh_x = np.tanh(a * x)
             return a * (1 - tanh_x**2)
+        
         return np.tanh(a * x)
     
     def leaky_relu(self, x, alpha=0.01, derivative=False):
@@ -352,10 +353,10 @@ class NeuralNetwork():
         # change learning rate
         # if variable learning rate is enable
         if self.VariableLROption :
-                if i <= self.tau :
-                    etas = self.learning_rate_schedule(self.eta0, self.eta_tau, self.tau, i)
-                else : 
-                    etas = self.eta_tau
+            if i <= self.tau :
+                etas = self.learning_rate_schedule(self.eta0, self.eta_tau, self.tau, i)
+            else : 
+                etas = self.eta_tau
         else:
             etas = self.eta0
                             
@@ -387,7 +388,7 @@ class NeuralNetwork():
         # save old momentum contribution for next iteration
         oldGrad_output = velocityOutput
 
-
+        return oldGrad_hidden, oldGrad_output
 
     """
     If validationErrorCheck == False:
@@ -435,16 +436,16 @@ class NeuralNetwork():
                     o = self.feedForeward(X_batch, self.listOfWeightMatrices)
                     grad_output, grad_hidden = self.backPropagate(X_batch, Y_batch, o)
 
-                    self.update_weights(i, grad_hidden, grad_output, oldGrad_hidden, oldGrad_output, batch_size, num_samples, use_mini_batch)
+                    oldGrad_hidden, oldGrad_output = self.update_weights(i, grad_hidden, grad_output, oldGrad_hidden, oldGrad_output, batch_size, num_samples, use_mini_batch)
 
-                if validationErrorCheck   :
+                if validationErrorCheck :
                     outVal = self.feedForeward(xValid, self.listOfWeightMatrices) 
                     
                     if self.task == 'classification':
-                        eVL = self.classification_error(yValid, outVal, activation="tanh")
+                        eVL = self.classification_error(yValid, outVal, activation="sigmaid")
                     else:
                         # for regression task
-                        eVL = self.mean_squared_error_loss(yValid, outVal, activation="tanh")
+                        eVL = self.mean_squared_error_loss(yValid, outVal, activation="sigmaid")
                     
                     logVL.append(f"Epoch : {i}, MSE : {eVL}\n")
 
@@ -462,13 +463,14 @@ class NeuralNetwork():
                 grad_output, grad_hidden = self.backPropagate(X, Y, o)
 
                 if validationErrorCheck   :
+                    
                     outVal = self.feedForeward(xValid, self.listOfWeightMatrices) 
                     
                     if self.task == 'classification':
-                        eVL = self.classification_error(yValid, outVal, activation="tanh")
+                        eVL = self.classification_error(yValid, outVal, activation="sigmaid")
                     else:
                         # for regression task                
-                        eVL = self.mean_squared_error_loss(yValid, outVal, activation="tanh")
+                        eVL = self.mean_squared_error_loss(yValid, outVal)
                     
                     logVL.append(f"Epoch : {i}, MSE : {eVL}\n")
                     
@@ -478,7 +480,11 @@ class NeuralNetwork():
                 e = self.mean_squared_error_loss(Y, o)
                                 
                 logTR.append(f"Epoch : {i}, MSE : {e}\n")
-                self.update_weights(i, grad_hidden, grad_output, oldGrad_hidden, oldGrad_output, batch_size, num_samples, use_mini_batch)
+
+                #print(f"PRE \n")
+                #print(f" grad_hidden : {grad_hidden}\n grad_output: {grad_output}\n , oldGrad_hidden : {oldGrad_hidden}\n, oldGrad_output : {oldGrad_output}\n, batch_size : {batch_size}\n, num_samples : {num_samples}\n, use_mini_batch : {use_mini_batch}\n")
+                oldGrad_hidden, oldGrad_output = self.update_weights(i, grad_hidden, grad_output, oldGrad_hidden, oldGrad_output, batch_size, num_samples, use_mini_batch)
+                
                 i += 1
 
         if validationErrorCheck :
@@ -493,6 +499,9 @@ class NeuralNetwork():
         if activation == "sigmoid":     
             o = (o >= 0.5).astype(int)  # Converte in 0 o 1
         elif activation == "tanh": 
+            o[o >= 0] = 1
+            o[o < 0] = -1
+        elif  activation == "linear":
             o[o >= 0] = 1
             o[o < 0] = -1
         
