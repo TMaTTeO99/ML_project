@@ -56,11 +56,11 @@ class myModelParameters:
         rangeEpochs = [10, 20]
         """
     
-        rangeEta0 = [0.1]
-        rangeLambda = [0.1, 0.01, 0.001]
-        rangeAlpha = [0.1, 0.5, 0.9]
-        rangeEpochs = [100, 200, 300, 500]
-        rangeEtaFinal = [0.01, 0.1, 0.001]
+        rangeEta0 = [0.001]
+        rangeLambda = [0.0001]
+        rangeAlpha = [0.5]
+        rangeEpochs = [1000]
+        rangeEtaFinal = [0.001]
 
         optLogsTR = []
         startWeightsForOptimalTraining = []
@@ -75,11 +75,11 @@ class myModelParameters:
 
                             print(f"idxs combination: idxEta0 : {idxEta0} , idxetaF : {idxetaF} , idxLambda : {idxLambda} , idxAlpha : {idxAlpha} , idxepochs : {idxepochs}")
                             
-                            prm = myModelParameters(None, units_for_levels, activation, True, eta0, etaFinal, epochs / 3 , Lambda, Alpha)
+                            prm = myModelParameters(None, units_for_levels, activation, True, eta0, etaFinal, 500 , Lambda, Alpha)
                             model = NeuralNetwork(prm, debugMode)
                             
 
-                            trainError, LogsTR = model.train(xTrain, yTrain, epochs, 0.0001, "random", 5, False, xValid, yValid)
+                            trainError, LogsTR = model.train(xTrain, yTrain, epochs, 64 ,0.0001, "random", 10, False, xValid, yValid)
 
                             #for classification 
                             #result = model.predict_class(xValid, False)
@@ -159,4 +159,4 @@ class myModelParameters:
 
         return optModel, resultOptIperParam, optimalKeys, optimalValue, LogsTR, logVL
         """
-        return resultOptIperParam
+        return resultOptIperParam, optLogsTR
