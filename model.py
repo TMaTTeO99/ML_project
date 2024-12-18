@@ -54,7 +54,6 @@ class NeuralNetwork():
         if derivative:
             return np.where(x > 0, 1, alpha * np.exp(x))
         return np.where(x > 0, x, alpha * (np.exp(x) - 1))
-    ## TO-DO add more activation functions 
 
     #w_{i,j}: arrow from unit i to unit j 
     @staticmethod
@@ -159,6 +158,9 @@ class NeuralNetwork():
         self.units_for_levels = mdlParams.units_for_levels
         self.numberOfLevels = len(mdlParams.units_for_levels)-1
 
+        # type of task (classification or regression)
+        self.task = mdlParams.task
+
         self.initializeActivationFunctions(mdlParams.activation)
 
         if mdlParams.validationErrorCheck == True : 
@@ -247,12 +249,12 @@ class NeuralNetwork():
                 normGradHidden = np.matmul(listOfDelta[levels].T, x).T / x.shape[0] 
                 grad_hidden.append(normGradHidden)
             else:
-                # forgot / x.shape[0] 
                 normGradHidden = np.matmul(listOfDelta[levels].T, self.listOfHiddenRepr[levels-1]).T / x.shape[0] 
                 grad_hidden.append(normGradHidden)
 
 
         return grad_output.T, grad_hidden
+    
 
     """
     It is used to split between 2 cases:
@@ -298,7 +300,6 @@ class NeuralNetwork():
         If validationErrorCheck == True:
             validationError
             List of logs with validation_error for each epoch, of the best weight init
-
     """
     def selectOptimalStartingWeights(self, X, Y, epochs, batch_size, treshold, initMode, numberOfRestart, validationErrorCheck = False, xValid = None, yValid = None):
         
@@ -332,7 +333,22 @@ class NeuralNetwork():
         else :
             return e, listOfLogsTR
 
-    def update_weights(self, i, grad_hidden, grad_output, oldGrad_hidden, oldGrad_output, batch_size, num_samples):
+    """
+    It updates weiths using gradient descent with with momentum and regularization
+
+    Args:
+        - grad_hidden: current gradient of hidden layers
+        - grad_output: current of output layers
+        - oldGrad_hidden: previous gradient of hidden layers
+        - oldGrad_output: previous gradient of output layers
+        - batch_size: numbers of samples for each batch
+        - num_samples: number of patter in the dataset
+    
+    Modify:
+        - Updates weight matrices
+        - At the end of the iteration oldGrad_hidden is the current 
+    """
+    def update_weights(self, i, grad_hidden, grad_output, oldGrad_hidden, oldGrad_output, batch_size, num_samples, use_mini_batch):
         # change learning rate
         # if variable learning rate is enable
         if self.VariableLROption :
@@ -344,18 +360,25 @@ class NeuralNetwork():
             etas = self.eta0
                             
         for j in range(0, len(grad_hidden), 1):
-                                
-            # compute the momentum contribution for the hidden gradient update rule 
-            velocityHidden = self.alpha * oldGrad_hidden[j] + ((etas) *(batch_size/num_samples) * grad_hidden[j]) 
+            
+            if use_mini_batch: 
+                # compute the momentum contribution for the hidden gradient update rule 
+                velocityHidden = self.alpha * oldGrad_hidden[j] + ((etas) *(batch_size/num_samples) * grad_hidden[j]) 
+            else:
+                velocityHidden = self.alpha * oldGrad_hidden[j] + ((etas) * grad_hidden[j]) 
+
             # compute penalty term for regularization
             penalty_term = self.lambda_reg * self.listOfWeightMatrices[j]
             self.listOfWeightMatrices[j] = self.listOfWeightMatrices[j] + velocityHidden  - penalty_term
             # save old momentum contribution for next iteration
             oldGrad_hidden[j] = velocityHidden
                             
+        if use_mini_batch:
+            # compute the momentum contribution for the output gradient update rule
+            velocityOutput = self.alpha * oldGrad_output + ((etas) *(batch_size/num_samples) * grad_output)
+        else:
+            velocityOutput = self.alpha * oldGrad_output + ((etas) * grad_output)
 
-        # compute the momentum contribution for the output gradient update rule
-        velocityOutput = self.alpha * oldGrad_output + ((etas) *(batch_size/num_samples) * grad_output)
         # compute penalty term for regularization 
         penalty_term = self.lambda_reg * self.listOfWeightMatrices[-1]
         # list[-1] = last elem of the list = weights between hidden and output
@@ -367,24 +390,18 @@ class NeuralNetwork():
 
 
     """
-
     If validationErrorCheck == False:
         It initialize a list of weight matrices calling function initalizeWeightMatrix
     Else:
         It loads weight passed in myModelParameters
-
     """
     def realTraining(self, X, Y, epochs, batch_size, treshold, initMode, validationErrorCheck = False, xValid = None, yValid = None):
-        
-
         
         if validationErrorCheck == False : 
             self.listOfWeightMatrices = self.initalizeWeightMatrix(initMode)
         
         self.tmpStartWeights = copy.deepcopy(self.listOfWeightMatrices)
 
-        
- 
         # log for training 
         logTR = []  
 
@@ -417,56 +434,23 @@ class NeuralNetwork():
                     # Perform feedforward and backpropagation on the batch
                     o = self.feedForeward(X_batch, self.listOfWeightMatrices)
                     grad_output, grad_hidden = self.backPropagate(X_batch, Y_batch, o)
-                    self.update_weights(i, grad_hidden, grad_output, oldGrad_hidden, oldGrad_output, batch_size, num_samples)
-                    """
-                    # change learning rate
-                    # if variable learning rate is enable
-                    if self.VariableLROption :
-                        if i <= self.tau :
-                            etas = self.learning_rate_schedule(self.eta0, self.eta_tau, self.tau, i)
-                        else : 
-                            etas = self.eta_tau
-                    else:
-                        etas = self.eta0
-                    
-                    for j in range(0, len(grad_hidden), 1):
-                        
-                        # compute the momentum contribution for the hidden gradient update rule 
-                        velocityHidden = self.alpha * oldGrad_hidden[j] + ((etas) *(batch_size/num_samples) * grad_hidden[j]) 
-                        # compute penalty term for regularization
-                        penalty_term = self.lambda_reg * self.listOfWeightMatrices[j]
-                        self.listOfWeightMatrices[j] = self.listOfWeightMatrices[j] + velocityHidden  - penalty_term
-                        # save old momentum contribution for next iteration
-                        oldGrad_hidden[j] = velocityHidden
-                    
 
-                    # compute the momentum contribution for the output gradient update rule
-                    velocityOutput = self.alpha * oldGrad_output + ((etas) *(batch_size/num_samples) * grad_output)
-                    # compute penalty term for regularization 
-                    penalty_term = self.lambda_reg * self.listOfWeightMatrices[-1]
-                    # list[-1] = last elem of the list = weights between hidden and output
-                    self.listOfWeightMatrices[-1] = self.listOfWeightMatrices[-1] + velocityOutput   - penalty_term 
-                    
-                    # save old momentum contribution for next iteration
-                    oldGrad_output = velocityOutput
-                    """
+                    self.update_weights(i, grad_hidden, grad_output, oldGrad_hidden, oldGrad_output, batch_size, num_samples, use_mini_batch)
 
                 if validationErrorCheck   :
                     outVal = self.feedForeward(xValid, self.listOfWeightMatrices) 
                     
-                    #for classification
-                    #eVL = self.classification_error(yValid, outVal, activation="tanh")
-                    
-                    #for regression
-                    eVL = self.mean_squared_error_loss(yValid, outVal, activation="tanh")
+                    if self.task == 'classification':
+                        eVL = self.classification_error(yValid, outVal, activation="tanh")
+                    else:
+                        # for regression task
+                        eVL = self.mean_squared_error_loss(yValid, outVal, activation="tanh")
                     
                     logVL.append(f"Epoch : {i}, MSE : {eVL}\n")
 
                 o = self.feedForeward(X, self.listOfWeightMatrices)
                 e = self.mean_squared_error_loss(Y, o)
 
-                # TODO : salavre l'indice dell iterazione ed errore e plottare
-                
                 logTR.append(f"Epoch : {i}, MSE : {e}\n")
                 i += 1
                   
@@ -477,16 +461,14 @@ class NeuralNetwork():
                 # print the error 
                 grad_output, grad_hidden = self.backPropagate(X, Y, o)
 
-                # compute VL error for 10 % of iterations
-                # and i % (epochs * 0.1) == 0
                 if validationErrorCheck   :
                     outVal = self.feedForeward(xValid, self.listOfWeightMatrices) 
                     
-                    #for classification
-                    #eVL = self.classification_error(yValid, outVal, activation="tanh")
-                    
-                    #for regression
-                    eVL = self.mean_squared_error_loss(yValid, outVal, activation="tanh")
+                    if self.task == 'classification':
+                        eVL = self.classification_error(yValid, outVal, activation="tanh")
+                    else:
+                        # for regression task                
+                        eVL = self.mean_squared_error_loss(yValid, outVal, activation="tanh")
                     
                     logVL.append(f"Epoch : {i}, MSE : {eVL}\n")
                     
@@ -494,52 +476,11 @@ class NeuralNetwork():
 
 
                 e = self.mean_squared_error_loss(Y, o)
-
-                # TODO : salavre l'indice dell iterazione ed errore e plottare
-                
+                                
                 logTR.append(f"Epoch : {i}, MSE : {e}\n")
-                self.update_weights(i, grad_hidden, grad_output, oldGrad_hidden, oldGrad_output, batch_size, num_samples)
-                """
-                # change learning rate
-                # if variable learning rate is enable
-                if self.VariableLROption :
-                    if i <= self.tau :
-                        etas = self.learning_rate_schedule(self.eta0, self.eta_tau, self.tau, i)
-                    else : 
-                        etas = self.eta_tau
-                else:
-                    etas = self.eta0
-                
-                for j in range(0, len(grad_hidden), 1):
-                    
-                    # compute the momentum contribution for the hidden gradient update rule 
-                    velocityHidden = self.alpha * oldGrad_hidden[j] + ((etas) * grad_hidden[j]) 
-                    # compute penalty term for regularization
-                    penalty_term = self.lambda_reg * self.listOfWeightMatrices[j]
-                    self.listOfWeightMatrices[j] = self.listOfWeightMatrices[j] + velocityHidden  - penalty_term
-                    # save old momentum contribution for next iteration
-                    oldGrad_hidden[j] = velocityHidden
-                
-
-                # compute the momentum contribution for the output gradient update rule
-                velocityOutput = self.alpha * oldGrad_output + ((etas) * grad_output)
-                # compute penalty term for regularization 
-                penalty_term = self.lambda_reg * self.listOfWeightMatrices[-1]
-                # list[-1] = last elem of the list = weights between hidden and output
-                self.listOfWeightMatrices[-1] = self.listOfWeightMatrices[-1] + velocityOutput   - penalty_term 
-                
-                # save old momentum contribution for next iteration
-                oldGrad_output = velocityOutput 
-                """
+                self.update_weights(i, grad_hidden, grad_output, oldGrad_hidden, oldGrad_output, batch_size, num_samples, use_mini_batch)
                 i += 1
-        
-            """
-            for string in logTR:
-                file.write(string)
 
-            """
-            
-        #scrivere il class err in un file per poi plottare     
         if validationErrorCheck :
             return e, logVL, logTR
         else : 
@@ -559,21 +500,18 @@ class NeuralNetwork():
         return np.sum(err)/num_pattern
     
 
-    # added by Matteo Torchia to change learning rate
     def learning_rate_schedule(self, eta0, eta_tau, tau, step): 
         gamma = step / tau 
         eta_s = (1 - gamma) * eta0 + gamma * eta_tau
         return eta_s
-    # end
-
     
     def predict(self, inputX, reloaded, optimalListOfWeightMatrices):
         
-        #if reloaded == true then use optimalListOfWeightMatrices retreived from disk
+        # if reloaded == true then use optimalListOfWeightMatrices retreived from disk
         if reloaded :
             return self.feedForeward(inputX, optimalListOfWeightMatrices)
         
-        #else use optimalListOfWeightMatrices in model just trained
+        # else use optimalListOfWeightMatrices in model just trained
         else :
             return self.feedForeward(inputX, self.optimalListOfWeightMatrices)
     
