@@ -60,6 +60,7 @@ k = 4
 testSplits = mmp.myModelParameters.kFoldPartition(selectionSet, k)
 
 listOfDict = []
+listOfLog = []
 
 for numSplit, kfolSplit in enumerate(testSplits):
 
@@ -74,12 +75,46 @@ for numSplit, kfolSplit in enumerate(testSplits):
     x_Validation = vlSetFold[:, :-3]
     y_Validation = vlSetFold[:, -3:]
 
-    resultOptIperParam = mmp.myModelParameters.doGridSearch(x_Training, x_Validation, y_Training, y_Validation, [12,4,3], ['sigmoid','linear'], False)
+    resultOptIperParam, log = mmp.myModelParameters.doGridSearch(x_Training, x_Validation, y_Training, y_Validation, [12,7,5,3], ['elu','elu','linear'], False)
     listOfDict.append(resultOptIperParam)
+    listOfLog.append(log)
 
 
 for dict in listOfDict:
-    print(dict)
+    # print(dict)
+    # Itera su tutte le chiavi del dizionario
+    for key, value in dict.items(): 
+        # Estrai i primi due valori della tupla
+        training_error = value[0]
+        validation_error = value[1]
+    
+        # Stampa il messaggio desiderato
+        print(f'Per gli iperparametri {key}: il training error è "{training_error}" e il validation error è "{validation_error}".')
+
+print(f'*******************************************************************')
+# Salva ogni log in un file separato
+
+# Specifica la directory di output per i file
+log_directory = "./log"
+
+# Crea la directory se non esiste
+os.makedirs(log_directory, exist_ok=True)
+
+# Salva ogni log in un file separato
+for index, log in enumerate(listOfLog, start=1):
+    file_name = f"log_{index}.txt"  # Nome del file
+    file_path = os.path.join(log_directory, file_name)  # Percorso completo
+
+    # Converte il contenuto del log in stringa
+    if isinstance(log, list):
+        log_content = "\n".join(log)  # Unisci i contenuti della lista in una stringa con newline
+    else:
+        log_content = str(log)  # Converte in stringa se non è già
+
+    # Scrive nel file
+    with open(file_path, "w") as file:
+        file.write(log_content)  # Scrive il contenuto del log nel file
+        print(f"Salvato: {file_path}")
 
 
 
