@@ -25,7 +25,7 @@ class myModelParameters:
 
 
 
-    def __init__(self, weights, units_for_levels, activation, VariableLROption = False, eta0=0.8, eta_tau=0.5, tau=100, lambda_reg=0.01, alpha = 0.9, validationErrorCheck = False):
+    def __init__(self, weights, units_for_levels, activation, VariableLROption = False, eta0=0.8, eta_tau=0.5, tau=100, lambda_reg=0.01, alpha = 0.9, validationErrorCheck = False, task = None):
         
         self.validationErrorCheck = validationErrorCheck
         self.VariableLROption = VariableLROption
@@ -37,6 +37,7 @@ class myModelParameters:
         self.tau = tau
         self.lambda_reg = lambda_reg
         self.alpha = alpha
+        self.task = task
     
 
 
@@ -55,7 +56,7 @@ class myModelParameters:
 
 
     @staticmethod
-    def doGridSearch(xTrain, xValid, yTrain, yValid, units_for_levels, activation):
+    def doGridSearch(xTrain, xValid, yTrain, yValid, units_for_levels, activation, task):
 
         resultOptIperParam = {}
 
@@ -74,12 +75,22 @@ class myModelParameters:
         rangeAlpha = [0.8, 0.9]
         rangeEpochs = [10, 20]
         """
-    
+        """
+        good for ml cup
         rangeEta0 = [0.001]
         rangeLambda = [0.0001]
         rangeAlpha = [0.5]
         rangeEpochs = [500]
         rangeEtaFinal = [0.001]
+        """
+        rangeEta0 = [0.8]
+        rangeLambda = [0.01]
+        rangeAlpha = [0.9]
+        rangeEpochs = [500]
+        rangeEtaFinal = [0.5]
+
+        # instantiate the neural network  units_for_levels, activation, VariableLROption = False, eta0=0.8, eta_tau=0.5, tau=100, lambda_reg=0.01, alpha = 0.9
+
 
         optLogsTR = []
         startWeightsForOptimalTraining = []
@@ -94,37 +105,35 @@ class myModelParameters:
 
                             print(f"idxs combination: idxEta0 : {idxEta0} , idxetaF : {idxetaF} , idxLambda : {idxLambda} , idxAlpha : {idxAlpha} , idxepochs : {idxepochs}")
                             
-                            prm = myModelParameters(None, units_for_levels, activation, True, eta0, etaFinal, 500 , Lambda, Alpha)
+                            prm = myModelParameters(None, units_for_levels, activation, True, eta0, etaFinal, 100 , Lambda, Alpha, task)
                             model = NeuralNetwork(prm)
                             
 
-                            trainError, LogsTR = model.train(xTrain, yTrain, epochs, 64 ,0.0001, "random", 1, False, xValid, yValid)
-
-                            #for classification 
-                            #result = model.predict_class(xValid, False)
+                            trainError, LogsTR = model.train(xTrain, yTrain, epochs, None ,0.0001, "random", 5, False, xValid, yValid)
                             
-                            #for regretion
-                            try :
+                            if task == 'classification':
+                                #for classification 
+                                result = model.predict_class(xValid, False)
+                            else:
+                                #for regretion
                                 result = model.predict(xValid, False, None)
 
+                            if task == 'classification':
                                 #for classification 
-                                #valError = model.classification_error(yValid, result)
-                                
+                                valError = model.classification_error(yValid, result)
+                            else:
                                 #for regretion
                                 valError = model.mean_squared_error_loss(yValid, result)
                                 
-                                optWeights = model.getOptimalWeights()
-                                resultOptIperParam[(eta0, etaFinal, Lambda, Alpha, epochs)] = (trainError, valError, optWeights, model.get_list_init_weight_matrices())
+                            optWeights = model.getOptimalWeights()
+                            resultOptIperParam[(eta0, etaFinal, Lambda, Alpha, epochs)] = (trainError, valError, optWeights, model.get_list_init_weight_matrices())
 
-                                if valError < optimalValue[1] :
-                                    optimalValue = (trainError, valError, optWeights)
-                                    optimalKeys = (eta0, etaFinal, Lambda, Alpha, epochs)
-                                    optModel = model
-                                    optLogsTR = LogsTR
-                                    startWeightsForOptimalTraining = optModel.get_list_init_weight_matrices()
-                            except ValueError :
-                                print(ValueError)
-                                print(f" bad combination: {eta0}, {etaFinal}, {Lambda}, {Alpha}, {epochs}\n")
+                            if valError < optimalValue[1] :
+                                optimalValue = (trainError, valError, optWeights)
+                                optimalKeys = (eta0, etaFinal, Lambda, Alpha, epochs)
+                                optModel = model
+                                optLogsTR = LogsTR
+                                startWeightsForOptimalTraining = optModel.get_list_init_weight_matrices()
 
 
                             
@@ -133,10 +142,9 @@ class myModelParameters:
 
 
         # retraining model with best hiperparameters
-        """
-        
-        modelToBuildValidationError = NeuralNetwork(myModelParameters(startWeightsForOptimalTraining, units_for_levels, activation, True, optimalKeys[0], 0.5, 100, optimalKeys[1], optimalKeys[2], True))
-        trainError, logVL, LogsTR = modelToBuildValidationError.train(xTrain, yTrain, 1000, 0.0001, "random", 1, True, xValid, yValid)
+
+        modelToBuildValidationError = NeuralNetwork(myModelParameters(startWeightsForOptimalTraining, units_for_levels, activation, True, optimalKeys[0], 0.5, 100, optimalKeys[1], optimalKeys[2], True, task = 'classification'))
+        trainError, logVL, LogsTR = modelToBuildValidationError.train(xTrain, yTrain, 1000, None, 0.0001, "random", 1, True, xValid, yValid)
 
         result = modelToBuildValidationError.predict_class(xValid, False)
         valError = modelToBuildValidationError.classification_error(yValid, result)
@@ -169,5 +177,5 @@ class myModelParameters:
 
 
         return optModel, resultOptIperParam, optimalKeys, optimalValue, LogsTR, logVL
-        """
-        return resultOptIperParam, optLogsTR
+
+        #return resultOptIperParam, optLogsTR
