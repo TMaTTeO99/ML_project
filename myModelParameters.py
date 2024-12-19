@@ -83,11 +83,11 @@ class myModelParameters:
         rangeEpochs = [500]
         rangeEtaFinal = [0.001]
         """
-        rangeEta0 = [0.8]
-        rangeLambda = [0.01]
-        rangeAlpha = [0.9]
-        rangeEpochs = [500]
-        rangeEtaFinal = [0.5]
+        rangeEta0 = [0.3]
+        rangeLambda = [0.001]
+        rangeAlpha = [0]
+        rangeEpochs = [1000]
+        rangeEtaFinal = [0.3]
 
         # instantiate the neural network  units_for_levels, activation, VariableLROption = False, eta0=0.8, eta_tau=0.5, tau=100, lambda_reg=0.01, alpha = 0.9
 
@@ -105,18 +105,18 @@ class myModelParameters:
 
                             print(f"idxs combination: idxEta0 : {idxEta0} , idxetaF : {idxetaF} , idxLambda : {idxLambda} , idxAlpha : {idxAlpha} , idxepochs : {idxepochs}")
                             
-                            prm = myModelParameters(None, units_for_levels, activation, True, eta0, etaFinal, 100 , Lambda, Alpha, task)
+                            prm = myModelParameters(None, units_for_levels, activation, True, eta0, etaFinal, 100 , Lambda, Alpha, False , task)
                             model = NeuralNetwork(prm)
                             
 
-                            trainError, LogsTR = model.train(xTrain, yTrain, epochs, None, 0.0001, "random", 5, False, xValid, yValid)
+                            trainError, LogsTR = model.train(xTrain, yTrain, epochs, 32, 0.0001, "xavier", 5, False, None, None)
                             
                             if task == 'classification':
                                 #for classification 
-                                result = model.predict_class(xValid, False)
-                                valError = model.classification_error(yValid, result)
+                                result = model.predict_class(xValid, False, activation[-1], None )
+                                valError = model.classification_error(yValid, result, activation[-1])
                             else:
-                                #for regretion
+                                #for regression
                                 result = model.predict(xValid, False, None)
                                 valError = model.mean_squared_error_loss(yValid, result)
                                 
@@ -142,8 +142,8 @@ class myModelParameters:
         modelToBuildValidationError = NeuralNetwork(myModelParameters(startWeightsForOptimalTraining, units_for_levels, activation, True, optimalKeys[0], optimalKeys[1], 100, optimalKeys[2], optimalKeys[3], True, task = 'classification'))
         trainError, logVL, LogsTR = modelToBuildValidationError.train(xTrain, yTrain, optimalKeys[4], None, 0.0001, "random", 1, True, xValid, yValid)
 
-        result = modelToBuildValidationError.predict_class(xValid, False)
-        valError = modelToBuildValidationError.classification_error(yValid, result)
+        result = modelToBuildValidationError.predict_class(xValid, False, activation[-1], None)
+        valError = modelToBuildValidationError.classification_error(yValid, result, activation[-1])
         
         print(f"****************************************************************\n")
         print(f"****************************************************************\n")

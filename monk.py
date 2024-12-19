@@ -47,8 +47,8 @@ y = target.to_numpy().reshape(-1, 1)
 y_test = target_test.to_numpy().reshape(-1, 1)
 
 # if you want to use tanh 
-# y[y == 0] = -1
-# y_test[y_test == 0] = -1
+y[y == 0] = -1
+y_test[y_test == 0] = -1
 
 #print(y)
 #print(y.shape[0])
@@ -59,7 +59,8 @@ debugMode = False
 
 while True:
     try :
-        inp = input("insert \"y\" for debug mode or others for standard mode\n")
+        # inp = input("insert \"y\" for debug mode or others for standard mode\n")
+        inp = "y"
         if inp == "y":
             debugMode = True
         else: debugMode = False
@@ -79,13 +80,14 @@ else :
 
 
     #(xTrain, xValid, yTrain, yValid, units_for_levels, activation, debugMode)
-    inputG = input("insert \"g\" for Grid Search, otherwise another character\n")
+    # inputG = input("insert \"g\" for Grid Search, otherwise another character\n")
+    inputG = "g"
     # do grid search 
     if inputG == "g":
         
         #  optModel, resultOptIperParam, optimalKeys, optimalValue, LogsTR, logVL
 
-        modelWithGridSearch, result, optimalKeys, optimalValue, optLogsTR, logVL = mmp.myModelParameters.doGridSearch(x, x_test, y, y_test, [17,4,1], ['sigmoid','sigmoid'], task = 'classification')
+        modelWithGridSearch, result, optimalKeys, optimalValue, optLogsTR, logVL = mmp.myModelParameters.doGridSearch(x, x_test, y, y_test, [17,4,1], ['tanh', 'sigmoid'], task = 'classification')
         xasses = []
         yasses = []
         xassesVL = []
@@ -115,7 +117,7 @@ else :
         
     else :    
         # instantiate the neural network  units_for_levels, activation, VariableLROption = False, eta0=0.8, eta_tau=0.5, tau=100, lambda_reg=0.01, alpha = 0.9
-        param = mmp.myModelParameters(None, [17,4,1], ['sigmoid','tanh'], True, 0.8, 0.5, 100, 0.01, 0.9)
+        param = mmp.myModelParameters(None, [17,4,1], ['sigmoid','sigmoid'], True, 0.8, 0.5, 100, 0.01, 0.9)
         model = NeuralNetwork(param, debugMode)
 
         model.train(x, y, 20, 0.00001, "xavier", 1)
